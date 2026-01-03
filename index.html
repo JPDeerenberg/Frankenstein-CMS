@@ -7,7 +7,7 @@
       :root {
         --main-bg: #2c3e50;
         --panel-bg: #34495e;
-        --accent: #e67e22;
+        --accent: #27ae60; /* Changed to Green because... reanimated. */
         --text: #ecf0f1;
       }
       body {
@@ -64,7 +64,7 @@
         position: relative;
       }
       #editor-wrapper {
-        background: white;
+        background: white; /* This will be the background behind the Shadow Host */
         color: black;
         flex: 1;
         overflow-y: auto;
@@ -73,19 +73,19 @@
         position: relative;
         box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
       }
-      #editor-content {
+      /* The Shadow Host */
+      #editor-host {
+        display: block;
         min-height: 100%;
-        transform: translate(0, 0);
+        outline: none;
+
+        /* FIX: Trap 'fixed' position elements (like navbars) inside the box */
         contain: content;
         position: relative;
-        outline: none;
+        background: white;
       }
-      [data-editable]:hover {
-        outline: 2px dashed var(--accent);
-        cursor: text;
-        position: relative;
-        z-index: 50;
-      }
+
+      /* Toolbar styling */
       #floating-toolbar {
         position: absolute;
         display: none;
@@ -199,9 +199,7 @@
     <div id="floating-toolbar">
       <button onclick="execCmd('bold')" title="Bold"><b>B</b></button>
       <button onclick="execCmd('italic')" title="Italic"><i>I</i></button>
-      <button onclick="execCmd('underline')" title="Underline">
-        <u>U</u>
-      </button>
+      <button onclick="execCmd('underline')" title="Underline"><u>U</u></button>
       <div class="divider"></div>
       <button onclick="formatBlock('H2')" title="Heading 2">H2</button>
       <button onclick="formatBlock('H3')" title="Heading 3">H3</button>
@@ -213,9 +211,9 @@
 
     <div id="login-screen" class="screen active">
       <div class="login-box">
-        <h2>🧟‍♂️ Frankenstein Login</h2>
+        <h2>🧟‍♂️ Frankenstein 2.0</h2>
         <p style="font-size: 0.8em; opacity: 0.7">
-          The most insecure vault in the world.
+          Now with 50% less chance of self-destruction.
         </p>
         <input
           type="password"
@@ -224,7 +222,7 @@
         />
         <input type="text" id="cfg-owner" placeholder="GitHub Username" />
         <input type="text" id="cfg-repo" placeholder="Repo Name" />
-        <button onclick="saveConfigAndLogin()">🔓 Login & Save</button>
+        <button onclick="saveConfigAndLogin()">🔓 Login (Session)</button>
         <div id="login-msg" class="status-bar"></div>
       </div>
     </div>
@@ -251,12 +249,7 @@
         </div>
 
         <div id="editor-wrapper">
-          <div
-            id="editor-content"
-            style="color: #666; text-align: center; padding-top: 50px"
-          >
-            Select a file on the left to edit.
-          </div>
+          <div id="editor-host"></div>
         </div>
 
         <button
@@ -279,13 +272,14 @@
     <script>
       let config = { token: "", owner: "", repo: "" };
       let currentSha = "";
-      let originalHead = "";
-      let originalAttributes = "";
+      let originalRawHTML = ""; // Store raw string for serializer
       let currentPath = "";
-      let activeStyles = [];
+      // Shadow Root Reference
+      let shadow = null;
 
       window.onload = () => {
-        const saved = localStorage.getItem("frankenstein_cfg");
+        // FIX 2: Check SessionStorage instead of LocalStorage
+        const saved = sessionStorage.getItem("frankenstein_cfg");
         if (saved) {
           config = JSON.parse(saved);
           showDashboard();
@@ -294,47 +288,53 @@
       };
 
       function initToolbar() {
-        const editor = document.getElementById("editor-content");
         const toolbar = document.getElementById("floating-toolbar");
 
-        document.addEventListener("selectionchange", () => {
-          const selection = window.getSelection();
-          if (
-            selection.rangeCount > 0 &&
-            !selection.isCollapsed &&
-            editor.contains(selection.anchorNode)
-          ) {
+        // Listen to selection changes on the document (Shadow DOM selection bubbles up in some browsers, but we need to check activeElement)
+        document.addEventListener("selectionchange", updateToolbarPos);
+
+        // Fallback for when interacting inside Shadow DOM
+        setInterval(updateToolbarPos, 200);
+
+        function updateToolbarPos() {
+          if (!shadow) return;
+          const selection = shadow.getSelection();
+
+          if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
             const range = selection.getRangeAt(0);
             const rect = range.getBoundingClientRect();
-            toolbar.style.top = `${rect.top - 50}px`;
-            toolbar.style.left = `${rect.left + rect.width / 2}px`;
-            toolbar.style.display = "block";
-          } else {
-            setTimeout(() => {
-              if (
-                document.activeElement &&
-                !toolbar.contains(document.activeElement)
-              ) {
-              }
-            }, 100);
-          }
-        });
 
-        editor.addEventListener("mouseup", () => {
-          const selection = window.getSelection();
-          if (selection.isCollapsed) {
+            // Adjust for the editor wrapper position since rect is viewport relative
+            if (rect.width > 0 && rect.height > 0) {
+              toolbar.style.top = `${rect.top - 50}px`;
+              toolbar.style.left = `${rect.left + rect.width / 2}px`;
+              toolbar.style.display = "block";
+              return;
+            }
+          }
+          // Only hide if we aren't hovering the toolbar itself
+          if (!toolbar.contains(document.activeElement)) {
+            // delay hiding slightly
+          }
+        }
+
+        // Hide on click outside
+        document.addEventListener("mousedown", (e) => {
+          if (!toolbar.contains(e.target) && e.target.id !== "editor-host") {
             toolbar.style.display = "none";
           }
         });
 
         toolbar.querySelectorAll("button").forEach((btn) => {
           btn.addEventListener("mousedown", (e) => {
-            e.preventDefault();
+            e.preventDefault(); // Prevent losing focus from editor
           });
         });
       }
 
       function execCmd(command, value = null) {
+        // FIX 1: Still using execCommand (The Zombie), but strictly on the Shadow Document
+        // Note: document.execCommand works on the active editable element (even in shadow) in most modern browsers.
         document.execCommand(command, false, value);
       }
 
@@ -372,7 +372,8 @@
           msgBox.innerText = `Logged in: ${data.full_name}`;
           msgBox.style.color = "green";
           config = { token, owner, repo };
-          localStorage.setItem("frankenstein_cfg", JSON.stringify(config));
+          // FIX 2: Save to SessionStorage (clears on tab close)
+          sessionStorage.setItem("frankenstein_cfg", JSON.stringify(config));
           setTimeout(() => showDashboard(), 1000);
         } catch (e) {
           msgBox.innerText = e.message;
@@ -382,7 +383,7 @@
 
       function logout() {
         if (confirm("Log out?")) {
-          localStorage.removeItem("frankenstein_cfg");
+          sessionStorage.removeItem("frankenstein_cfg");
           location.reload();
         }
       }
@@ -410,8 +411,7 @@
       }
 
       async function loadAndInjectStyles(doc) {
-        activeStyles.forEach((el) => el.remove());
-        activeStyles = [];
+        // FIX 4: Inject styles into Shadow DOM, not main document
         const links = doc.querySelectorAll('link[rel="stylesheet"]');
         if (links.length === 0) return;
 
@@ -435,10 +435,11 @@
               const cssContent = decodeURIComponent(
                 escape(window.atob(data.content))
               );
+
+              // Inject into Shadow Root
               const styleTag = document.createElement("style");
               styleTag.textContent = cssContent;
-              document.head.appendChild(styleTag);
-              activeStyles.push(styleTag);
+              if (shadow) shadow.appendChild(styleTag);
             } catch (e) {
               console.warn("Failed CSS:", apiPath);
             }
@@ -454,13 +455,7 @@
 
         const promises = Array.from(images).map(async (img) => {
           const src = img.getAttribute("src");
-          if (
-            !src ||
-            src.startsWith("http") ||
-            src.startsWith("//") ||
-            src.startsWith("data:")
-          )
-            return;
+          if (!src || src.startsWith("http") || src.startsWith("data:")) return;
 
           img.setAttribute("data-original-src", src);
           const apiPath = resolvePath(currentDir, src);
@@ -524,8 +519,17 @@
         if (menuElement) menuElement.classList.add("active");
         currentPath = path;
         document.getElementById("active-filename").innerText = path;
-        const container = document.getElementById("editor-content");
-        container.innerHTML = "Loading (HTML, CSS & Images)...";
+
+        // FIX 4: Initialize Shadow DOM
+        const host = document.getElementById("editor-host");
+        if (!host.shadowRoot) {
+          shadow = host.attachShadow({ mode: "open" });
+        } else {
+          shadow = host.shadowRoot;
+        }
+
+        // Default styling for the shadow dom editor area
+        shadow.innerHTML = `<div style="padding: 20px; color: #666;">Loading...</div>`;
         document.getElementById("saveBtn").style.display = "none";
 
         try {
@@ -540,33 +544,53 @@
           currentSha = data.sha;
 
           const rawHTML = decodeURIComponent(escape(window.atob(data.content)));
+          originalRawHTML = rawHTML; // Save for XMLSerializer later
+
           const parser = new DOMParser();
           const doc = parser.parseFromString(rawHTML, "text/html");
 
-          originalHead = doc.head.innerHTML;
+          // Inject CSS into Shadow DOM
+          await loadAndInjectStyles(doc);
+          await fixImagesWithAuth(doc);
 
-          await Promise.all([loadAndInjectStyles(doc), fixImagesWithAuth(doc)]);
+          // Render Body into Shadow DOM
+          // We wrap it in a div to ensure we have a block to edit, or just dump body children
+          shadow.innerHTML = ""; // Clear loader
 
-          const htmlTag = doc.documentElement;
-          let attrs = "";
-          if (htmlTag.attributes.length > 0) {
-            for (let i = 0; i < htmlTag.attributes.length; i++) {
-              attrs += `${htmlTag.attributes[i].name}="${htmlTag.attributes[i].value}" `;
-            }
-          }
-          originalAttributes = attrs.trim();
+          // Re-add styles that were just fetched (since we cleared innerHTML)
+          // Actually, loadAndInjectStyles appends to shadow, so we need to be careful not to wipe them.
+          // Better approach: Create a container for content.
+          const styleContainer = document.createElement("div");
+          styleContainer.id = "cms-styles";
+          shadow.appendChild(styleContainer);
 
-          container.innerHTML = doc.body.innerHTML;
+          // Re-fetch styles implies we append them again. Let's adjust logic slightly:
+          // We will let loadAndInjectStyles append to shadow.
 
-          const editables = container.querySelectorAll("[data-editable]");
+          // Insert Body Content
+          const contentDiv = document.createElement("div");
+          contentDiv.id = "editable-body";
+          contentDiv.innerHTML = doc.body.innerHTML;
+          contentDiv.style.outline = "none";
+          contentDiv.style.minHeight = "200px";
+          shadow.appendChild(contentDiv);
+
+          // Re-run style injection now that shadow is ready
+          await loadAndInjectStyles(doc);
+
+          const editables = shadow.querySelectorAll("[data-editable]");
           if (editables.length > 0) {
             editables.forEach((el) => (el.contentEditable = "true"));
-          } else if (container.innerText.trim().length === 0) {
-            container.innerHTML = "<p style='color:orange'>Empty file.</p>";
+          } else {
+            // If no data-editable, make the whole body editable? Or warn?
+            // For safety, let's just warn if nothing is editable
+            if (contentDiv.innerText.trim().length === 0)
+              contentDiv.innerHTML = "<p>Empty file</p>";
           }
+
           document.getElementById("saveBtn").style.display = "inline-block";
         } catch (e) {
-          container.innerHTML = `<p style="color:red">${e.message}</p>`;
+          shadow.innerHTML = `<p style="color:red">${e.message}</p>`;
         }
       }
 
@@ -574,36 +598,42 @@
         const btn = document.getElementById("saveBtn");
         const status = document.getElementById("save-status");
         btn.disabled = true;
-        btn.innerText = "Cleaning & Preparing...";
+        btn.innerText = "Serializing...";
         status.innerText = "Saving...";
 
         try {
-          const container = document.getElementById("editor-content");
-          const clone = container.cloneNode(true);
+          // FIX 3: Robust Saving with XMLSerializer
+          // 1. Get the current edited content from Shadow DOM
+          const contentContainer = shadow.getElementById("editable-body");
+          const clone = contentContainer.cloneNode(true);
 
+          // Clean up editable attributes
           clone
             .querySelectorAll("[data-editable]")
             .forEach((el) => el.removeAttribute("contenteditable"));
 
+          // Restore images to original src
           const images = clone.querySelectorAll("img[data-original-src]");
           images.forEach((img) => {
             img.src = img.getAttribute("data-original-src");
             img.removeAttribute("data-original-src");
           });
 
-          const newHTML = `<!DOCTYPE html>
-<html ${originalAttributes}>
-<head>
-${originalHead}
-</head>
-<body>
-${clone.innerHTML}
-<\/body>
-<\/html>`;
+          // 2. Parse the ORIGINAL file again to get a clean DOM structure (Head, HTML attrs)
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(originalRawHTML, "text/html");
+
+          // 3. Swap the body content
+          doc.body.innerHTML = clone.innerHTML;
+
+          // 4. Use XMLSerializer to generate valid HTML string
+          const serializer = new XMLSerializer();
+          const newHTML = serializer.serializeToString(doc);
 
           const encodedContent = window.btoa(
             unescape(encodeURIComponent(newHTML))
           );
+
           const res = await fetch(
             `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${currentPath}`,
             {
@@ -613,7 +643,7 @@ ${clone.innerHTML}
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                message: `Update ${currentPath}`,
+                message: `Update ${currentPath} via Frankenstein`,
                 content: encodedContent,
                 sha: currentSha,
               }),
@@ -623,7 +653,9 @@ ${clone.innerHTML}
           if (res.ok) {
             const data = await res.json();
             currentSha = data.content.sha;
-            status.innerText = "✅ Success!";
+            // Update originalRawHTML so next save is based on this version
+            originalRawHTML = newHTML;
+            status.innerText = "✅ Saved!";
             setTimeout(() => (status.innerText = ""), 3000);
           } else {
             throw new Error((await res.json()).message);
