@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <title>Frankenstein CMS 🧟‍♂️</title>
@@ -20,8 +20,6 @@
         display: flex;
         flex-direction: column;
       }
-
-      /* LAYOUTS */
       .screen {
         display: none;
         padding: 20px;
@@ -32,8 +30,6 @@
         display: flex;
         flex-direction: column;
       }
-
-      /* LOGIN SCREEN */
       #login-screen {
         align-items: center;
         justify-content: center;
@@ -47,8 +43,6 @@
         width: 100%;
         max-width: 400px;
       }
-
-      /* DASHBOARD (CMS) */
       #dashboard-screen {
         flex-direction: row;
       }
@@ -69,8 +63,6 @@
         overflow: hidden;
         position: relative;
       }
-
-      /* EDITOR */
       #editor-wrapper {
         background: white;
         color: black;
@@ -81,34 +73,28 @@
         position: relative;
         box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
       }
-
-      /* DE NAVBAR FIX */
       #editor-content {
         min-height: 100%;
         transform: translate(0, 0);
         contain: content;
         position: relative;
-        outline: none; /* Geen blauwe rand bij typen */
+        outline: none;
       }
-
-      /* Visuele hulpmiddelen */
       [data-editable]:hover {
         outline: 2px dashed var(--accent);
         cursor: text;
         position: relative;
         z-index: 50;
       }
-
-      /* NIEUW: FLOATING TOOLBAR */
       #floating-toolbar {
         position: absolute;
-        display: none; /* Verborgen tot selectie */
+        display: none;
         background: #222;
         padding: 5px;
         border-radius: 5px;
         z-index: 99999;
         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-        transform: translateX(-50%); /* Centreren */
+        transform: translateX(-50%);
       }
       #floating-toolbar button {
         background: transparent;
@@ -132,8 +118,6 @@
         margin: 0 5px;
         vertical-align: middle;
       }
-
-      /* UI ELEMENTS */
       h2 {
         margin-top: 0;
         color: var(--accent);
@@ -170,8 +154,6 @@
         background: #c0392b;
         margin-top: auto;
       }
-
-      /* FILE LIST */
       #file-list {
         list-style: none;
         padding: 0;
@@ -194,8 +176,6 @@
         background: var(--accent);
         color: white;
       }
-
-      /* STATUS */
       .status-bar {
         margin-top: 10px;
         font-size: 0.85em;
@@ -217,25 +197,25 @@
   </head>
   <body>
     <div id="floating-toolbar">
-      <button onclick="execCmd('bold')" title="Vet"><b>B</b></button>
-      <button onclick="execCmd('italic')" title="Schuin"><i>I</i></button>
-      <button onclick="execCmd('underline')" title="Onderstreept">
+      <button onclick="execCmd('bold')" title="Bold"><b>B</b></button>
+      <button onclick="execCmd('italic')" title="Italic"><i>I</i></button>
+      <button onclick="execCmd('underline')" title="Underline">
         <u>U</u>
       </button>
       <div class="divider"></div>
-      <button onclick="formatBlock('H2')" title="Kop 2">H2</button>
-      <button onclick="formatBlock('H3')" title="Kop 3">H3</button>
-      <button onclick="formatBlock('P')" title="Paragraaf">P</button>
+      <button onclick="formatBlock('H2')" title="Heading 2">H2</button>
+      <button onclick="formatBlock('H3')" title="Heading 3">H3</button>
+      <button onclick="formatBlock('P')" title="Paragraph">P</button>
       <div class="divider"></div>
       <button onclick="createLink()" title="Link">🔗</button>
-      <button onclick="execCmd('unlink')" title="Link verwijderen">❌</button>
+      <button onclick="execCmd('unlink')" title="Remove link">❌</button>
     </div>
 
     <div id="login-screen" class="screen active">
       <div class="login-box">
         <h2>🧟‍♂️ Frankenstein Login</h2>
         <p style="font-size: 0.8em; opacity: 0.7">
-          De onveiligste kluis ter wereld.
+          The most insecure vault in the world.
         </p>
         <input
           type="password"
@@ -243,27 +223,27 @@
           placeholder="GitHub Personal Access Token"
         />
         <input type="text" id="cfg-owner" placeholder="GitHub Username" />
-        <input type="text" id="cfg-repo" placeholder="Repo Naam" />
-        <button onclick="saveConfigAndLogin()">🔓 Login & Bewaar</button>
+        <input type="text" id="cfg-repo" placeholder="Repo Name" />
+        <button onclick="saveConfigAndLogin()">🔓 Login & Save</button>
         <div id="login-msg" class="status-bar"></div>
       </div>
     </div>
 
     <div id="dashboard-screen" class="screen">
       <div class="sidebar">
-        <h3>🗂 Bestanden</h3>
+        <h3>🗂 Files</h3>
         <button class="secondary" onclick="fetchFileList()">
-          🔄 Ververs Lijst
+          🔄 Refresh List
         </button>
         <ul id="file-list">
-          <li style="font-style: italic; opacity: 0.5">Laden...</li>
+          <li style="font-style: italic; opacity: 0.5">Loading...</li>
         </ul>
-        <button class="danger" onclick="logout()">🚪 Uitloggen</button>
+        <button class="danger" onclick="logout()">🚪 Log out</button>
       </div>
 
       <div class="main-content">
         <div class="current-file-display">
-          <span id="active-filename">Geen bestand geselecteerd</span>
+          <span id="active-filename">No file selected</span>
           <span
             id="save-status"
             style="font-size: 0.8em; color: #f1c40f"
@@ -275,7 +255,7 @@
             id="editor-content"
             style="color: #666; text-align: center; padding-top: 50px"
           >
-            Selecteer links een bestand om te martelen.
+            Select a file on the left to edit.
           </div>
         </div>
 
@@ -291,13 +271,12 @@
             z-index: 50;
           "
         >
-          💾 Opslaan & Push naar Git
+          💾 Save & Push to Git
         </button>
       </div>
     </div>
 
     <script>
-      // --- GLOBAL STATE ---
       let config = { token: "", owner: "", repo: "" };
       let currentSha = "";
       let originalHead = "";
@@ -311,19 +290,15 @@
           config = JSON.parse(saved);
           showDashboard();
         }
-        initToolbar(); // Start de toolbar luisteraar
+        initToolbar();
       };
 
-      // --- EDITOR TOOLBAR LOGIC (NIEUW) ---
       function initToolbar() {
         const editor = document.getElementById("editor-content");
         const toolbar = document.getElementById("floating-toolbar");
 
-        // Luister naar tekstselectie
         document.addEventListener("selectionchange", () => {
           const selection = window.getSelection();
-
-          // Alleen tonen als er tekst is geselecteerd EN we in de editor zitten
           if (
             selection.rangeCount > 0 &&
             !selection.isCollapsed &&
@@ -331,27 +306,20 @@
           ) {
             const range = selection.getRangeAt(0);
             const rect = range.getBoundingClientRect();
-
-            // Positie bepalen (boven de selectie)
             toolbar.style.top = `${rect.top - 50}px`;
             toolbar.style.left = `${rect.left + rect.width / 2}px`;
             toolbar.style.display = "block";
           } else {
-            // Verberg als we buiten klikken, maar NIET als we op de toolbar zelf klikken
-            // (Dit wordt afgehandeld door mousedown op toolbar buttons)
-            // setTimeout hack om click event door te laten komen
             setTimeout(() => {
               if (
                 document.activeElement &&
                 !toolbar.contains(document.activeElement)
               ) {
-                // toolbar.style.display = 'none'; // Hier even voorzichtig mee
               }
             }, 100);
           }
         });
 
-        // Verberg toolbar als we klikken in de editor zonder selectie
         editor.addEventListener("mouseup", () => {
           const selection = window.getSelection();
           if (selection.isCollapsed) {
@@ -359,7 +327,6 @@
           }
         });
 
-        // Voorkom dat de knoppen de selectie weghalen (belangrijk!)
         toolbar.querySelectorAll("button").forEach((btn) => {
           btn.addEventListener("mousedown", (e) => {
             e.preventDefault();
@@ -372,7 +339,7 @@
       }
 
       function createLink() {
-        const url = prompt("Geef URL:", "https://");
+        const url = prompt("Enter URL:", "https://");
         if (url) execCmd("createLink", url);
       }
 
@@ -380,7 +347,6 @@
         execCmd("formatBlock", tag);
       }
 
-      // --- AUTH ---
       async function saveConfigAndLogin() {
         const token = document.getElementById("cfg-token").value.trim();
         const owner = document.getElementById("cfg-owner").value.trim();
@@ -388,12 +354,12 @@
         const msgBox = document.getElementById("login-msg");
 
         if (!token || !owner || !repo) {
-          msgBox.innerText = "Alles invullen, slimmerik.";
+          msgBox.innerText = "Please fill in all fields.";
           msgBox.style.color = "red";
           return;
         }
 
-        msgBox.innerText = "Verbinding maken...";
+        msgBox.innerText = "Connecting...";
         msgBox.style.color = "orange";
 
         try {
@@ -401,9 +367,9 @@
           const res = await fetch(url, {
             headers: { Authorization: `token ${token}` },
           });
-          if (!res.ok) throw new Error(`Fout ${res.status}: Geen toegang.`);
+          if (!res.ok) throw new Error(`Error ${res.status}: No access.`);
           const data = await res.json();
-          msgBox.innerText = `Ingelogd: ${data.full_name}`;
+          msgBox.innerText = `Logged in: ${data.full_name}`;
           msgBox.style.color = "green";
           config = { token, owner, repo };
           localStorage.setItem("frankenstein_cfg", JSON.stringify(config));
@@ -415,7 +381,7 @@
       }
 
       function logout() {
-        if (confirm("Uitloggen?")) {
+        if (confirm("Log out?")) {
           localStorage.removeItem("frankenstein_cfg");
           location.reload();
         }
@@ -426,7 +392,6 @@
         fetchFileList();
       }
 
-      // --- PATH RESOLVER ---
       function resolvePath(basePath, relativePath) {
         if (relativePath.startsWith("/")) return relativePath.substring(1);
         const stack = basePath
@@ -444,7 +409,6 @@
         return stack.join("/");
       }
 
-      // --- HELPERS ---
       async function loadAndInjectStyles(doc) {
         activeStyles.forEach((el) => el.remove());
         activeStyles = [];
@@ -476,7 +440,7 @@
               document.head.appendChild(styleTag);
               activeStyles.push(styleTag);
             } catch (e) {
-              console.warn("Mislukt CSS:", apiPath);
+              console.warn("Failed CSS:", apiPath);
             }
           })
         );
@@ -512,17 +476,16 @@
             const blob = await res.blob();
             img.src = URL.createObjectURL(blob);
           } catch (e) {
-            console.warn(`Plaatje stuk: ${src}`, e);
+            console.warn(`Image broken: ${src}`, e);
             img.style.border = "2px solid red";
           }
         });
         await Promise.all(promises);
       }
 
-      // --- CORE ---
       async function fetchFileList() {
         const listEl = document.getElementById("file-list");
-        listEl.innerHTML = '<li style="opacity:0.5">Zoeken...</li>';
+        listEl.innerHTML = '<li style="opacity:0.5">Searching...</li>';
         try {
           const res = await fetch(
             `https://api.github.com/repos/${config.owner}/${config.repo}/contents/`,
@@ -530,16 +493,16 @@
               headers: { Authorization: `token ${config.token}` },
             }
           );
-          if (!res.ok) throw new Error("Fout bij ophalen lijst.");
+          if (!res.ok) throw new Error("Error fetching list.");
           const data = await res.json();
-          if (!Array.isArray(data)) throw new Error("Geen bestanden.");
+          if (!Array.isArray(data)) throw new Error("No files.");
           const htmlFiles = data.filter(
             (f) => f.name.endsWith(".html") && f.type === "file"
           );
 
           listEl.innerHTML = "";
           if (htmlFiles.length === 0) {
-            listEl.innerHTML = "<li>Geen HTML gevonden 🤷‍♂️</li>";
+            listEl.innerHTML = "<li>No HTML found 🤷‍♂️</li>";
             return;
           }
 
@@ -562,7 +525,7 @@
         currentPath = path;
         document.getElementById("active-filename").innerText = path;
         const container = document.getElementById("editor-content");
-        container.innerHTML = "Laden (HTML, CSS & Images)...";
+        container.innerHTML = "Loading (HTML, CSS & Images)...";
         document.getElementById("saveBtn").style.display = "none";
 
         try {
@@ -572,7 +535,7 @@
               headers: { Authorization: `token ${config.token}` },
             }
           );
-          if (!res.ok) throw new Error("Bestand niet gevonden.");
+          if (!res.ok) throw new Error("File not found.");
           const data = await res.json();
           currentSha = data.sha;
 
@@ -599,7 +562,7 @@
           if (editables.length > 0) {
             editables.forEach((el) => (el.contentEditable = "true"));
           } else if (container.innerText.trim().length === 0) {
-            container.innerHTML = "<p style='color:orange'>Leeg bestand.</p>";
+            container.innerHTML = "<p style='color:orange'>Empty file.</p>";
           }
           document.getElementById("saveBtn").style.display = "inline-block";
         } catch (e) {
@@ -611,8 +574,8 @@
         const btn = document.getElementById("saveBtn");
         const status = document.getElementById("save-status");
         btn.disabled = true;
-        btn.innerText = "Schoonmaken & Hechten...";
-        status.innerText = "Opslaan...";
+        btn.innerText = "Cleaning & Preparing...";
+        status.innerText = "Saving...";
 
         try {
           const container = document.getElementById("editor-content");
@@ -660,7 +623,7 @@ ${clone.innerHTML}
           if (res.ok) {
             const data = await res.json();
             currentSha = data.content.sha;
-            status.innerText = "✅ Gelukt!";
+            status.innerText = "✅ Success!";
             setTimeout(() => (status.innerText = ""), 3000);
           } else {
             throw new Error((await res.json()).message);
@@ -670,7 +633,7 @@ ${clone.innerHTML}
           status.innerText = "❌";
         } finally {
           btn.disabled = false;
-          btn.innerText = "💾 Opslaan & Push naar Git";
+          btn.innerText = "💾 Save & Push to Git";
         }
       }
     </script>
