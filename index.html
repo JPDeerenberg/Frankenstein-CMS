@@ -7,7 +7,7 @@
       :root {
         --main-bg: #2c3e50;
         --panel-bg: #34495e;
-        --accent: #27ae60; /* Changed to Green because... reanimated. */
+        --accent: #e74c3c; /* Red: Because manual configuration is painful. */
         --text: #ecf0f1;
       }
       body {
@@ -30,6 +30,8 @@
         display: flex;
         flex-direction: column;
       }
+
+      /* LOGIN SCREEN */
       #login-screen {
         align-items: center;
         justify-content: center;
@@ -41,8 +43,104 @@
         border-radius: 10px;
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
         width: 100%;
-        max-width: 400px;
+        max-width: 450px;
+        text-align: left;
+        position: relative;
       }
+      .login-box h2 {
+        text-align: center;
+        margin-bottom: 5px;
+        color: var(--accent);
+      }
+      .login-box p.subtitle {
+        text-align: center;
+        margin-top: 0;
+        margin-bottom: 20px;
+        font-size: 0.9em;
+        opacity: 0.7;
+      }
+      label {
+        font-size: 0.8em;
+        font-weight: bold;
+        display: block;
+        margin-top: 10px;
+        color: #bdc3c7;
+      }
+      input {
+        width: 100%;
+        padding: 12px;
+        margin: 5px 0 15px 0;
+        background: #222;
+        border: 1px solid #555;
+        color: white;
+        border-radius: 4px;
+        box-sizing: border-box;
+        transition: border 0.2s;
+      }
+      input:focus {
+        border-color: var(--accent);
+        outline: none;
+      }
+
+      /* HELP / GUIDE SECTION */
+      .help-link {
+        display: block;
+        text-align: right;
+        font-size: 0.8em;
+        color: var(--accent);
+        text-decoration: none;
+        margin-top: -10px;
+        margin-bottom: 15px;
+        cursor: pointer;
+      }
+      .help-link:hover {
+        text-decoration: underline;
+      }
+
+      #token-guide {
+        display: none;
+        background: rgba(0, 0, 0, 0.3);
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+        border-left: 3px solid var(--accent);
+        font-size: 0.85em;
+        line-height: 1.4;
+      }
+      #token-guide strong {
+        color: #fff;
+      }
+      #token-guide ul {
+        margin: 5px 0;
+        padding-left: 20px;
+        color: #ddd;
+      }
+
+      button {
+        width: 100%;
+        padding: 12px;
+        margin-top: 10px;
+        background: var(--accent);
+        color: white;
+        border: none;
+        cursor: pointer;
+        border-radius: 4px;
+        font-weight: bold;
+        transition: 0.2s;
+        font-size: 1em;
+      }
+      button:hover {
+        filter: brightness(1.1);
+      }
+      button.secondary {
+        background: #7f8c8d;
+      }
+      button.danger {
+        background: #c0392b;
+        margin-top: auto;
+      }
+
+      /* DASHBOARD */
       #dashboard-screen {
         flex-direction: row;
       }
@@ -63,8 +161,10 @@
         overflow: hidden;
         position: relative;
       }
+
+      /* EDITOR */
       #editor-wrapper {
-        background: white; /* This will be the background behind the Shadow Host */
+        background: white;
         color: black;
         flex: 1;
         overflow-y: auto;
@@ -73,19 +173,15 @@
         position: relative;
         box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
       }
-      /* The Shadow Host */
       #editor-host {
         display: block;
         min-height: 100%;
         outline: none;
-
-        /* FIX: Trap 'fixed' position elements (like navbars) inside the box */
         contain: content;
         position: relative;
-        background: white;
       }
 
-      /* Toolbar styling */
+      /* TOOLBAR */
       #floating-toolbar {
         position: absolute;
         display: none;
@@ -118,42 +214,8 @@
         margin: 0 5px;
         vertical-align: middle;
       }
-      h2 {
-        margin-top: 0;
-        color: var(--accent);
-      }
-      input {
-        width: 100%;
-        padding: 12px;
-        margin: 8px 0;
-        background: #222;
-        border: 1px solid #555;
-        color: white;
-        border-radius: 4px;
-        box-sizing: border-box;
-      }
-      button {
-        width: 100%;
-        padding: 12px;
-        margin-top: 10px;
-        background: var(--accent);
-        color: white;
-        border: none;
-        cursor: pointer;
-        border-radius: 4px;
-        font-weight: bold;
-        transition: 0.2s;
-      }
-      button:hover {
-        filter: brightness(1.1);
-      }
-      button.secondary {
-        background: #7f8c8d;
-      }
-      button.danger {
-        background: #c0392b;
-        margin-top: auto;
-      }
+
+      /* UTILS */
       #file-list {
         list-style: none;
         padding: 0;
@@ -181,6 +243,7 @@
         font-size: 0.85em;
         color: #bdc3c7;
         text-align: center;
+        min-height: 1.2em;
       }
       .current-file-display {
         background: #222;
@@ -211,18 +274,44 @@
 
     <div id="login-screen" class="screen active">
       <div class="login-box">
-        <h2>🧟‍♂️ Frankenstein 2.0</h2>
-        <p style="font-size: 0.8em; opacity: 0.7">
-          Now with 50% less chance of self-destruction.
-        </p>
+        <h2>🧟‍♂️ Frankenstein</h2>
+        <p class="subtitle">A working CMS</p>
+
+        <label>1. GitHub Token (Fine-Grained)</label>
         <input
           type="password"
           id="cfg-token"
-          placeholder="GitHub Personal Access Token"
+          placeholder="github_pat_xxxxxxxxxxxx"
         />
-        <input type="text" id="cfg-owner" placeholder="GitHub Username" />
-        <input type="text" id="cfg-repo" placeholder="Repo Name" />
-        <button onclick="saveConfigAndLogin()">🔓 Login (Session)</button>
+        <a href="#" onclick="openTokenPage()" class="help-link"
+          >🔑 Generate Fine-Grained Token</a
+        >
+
+        <div id="token-guide">
+          <strong>GitHub doesn't auto-fill this form.</strong><br />
+          Please check these boxes manually:
+          <ul>
+            <li>
+              <strong>Repository access:</strong> Select "Only select
+              repositories" -> Choose this repo.
+            </li>
+            <li>
+              <strong>Permissions:</strong> Click "Repository permissions".
+            </li>
+            <li>
+              Scroll to <strong>Contents</strong> -> Change to
+              <strong>Read and write</strong>.
+            </li>
+          </ul>
+        </div>
+
+        <label>2. GitHub Username</label>
+        <input type="text" id="cfg-owner" placeholder="e.g. jpdeerenberg" />
+
+        <label>3. Repository Name</label>
+        <input type="text" id="cfg-repo" placeholder="e.g. frankenstein-cms" />
+
+        <button onclick="saveConfigAndLogin()">🔓 Connect & Login</button>
         <div id="login-msg" class="status-bar"></div>
       </div>
     </div>
@@ -272,13 +361,11 @@
     <script>
       let config = { token: "", owner: "", repo: "" };
       let currentSha = "";
-      let originalRawHTML = ""; // Store raw string for serializer
+      let originalRawHTML = "";
       let currentPath = "";
-      // Shadow Root Reference
       let shadow = null;
 
       window.onload = () => {
-        // FIX 2: Check SessionStorage instead of LocalStorage
         const saved = sessionStorage.getItem("frankenstein_cfg");
         if (saved) {
           config = JSON.parse(saved);
@@ -287,64 +374,15 @@
         initToolbar();
       };
 
-      function initToolbar() {
-        const toolbar = document.getElementById("floating-toolbar");
+      // --- LOGIN LOGIC ---
 
-        // Listen to selection changes on the document (Shadow DOM selection bubbles up in some browsers, but we need to check activeElement)
-        document.addEventListener("selectionchange", updateToolbarPos);
+      function openTokenPage() {
+        // Show the guide because the user is about to be confused
+        document.getElementById("token-guide").style.display = "block";
 
-        // Fallback for when interacting inside Shadow DOM
-        setInterval(updateToolbarPos, 200);
-
-        function updateToolbarPos() {
-          if (!shadow) return;
-          const selection = shadow.getSelection();
-
-          if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
-            const range = selection.getRangeAt(0);
-            const rect = range.getBoundingClientRect();
-
-            // Adjust for the editor wrapper position since rect is viewport relative
-            if (rect.width > 0 && rect.height > 0) {
-              toolbar.style.top = `${rect.top - 50}px`;
-              toolbar.style.left = `${rect.left + rect.width / 2}px`;
-              toolbar.style.display = "block";
-              return;
-            }
-          }
-          // Only hide if we aren't hovering the toolbar itself
-          if (!toolbar.contains(document.activeElement)) {
-            // delay hiding slightly
-          }
-        }
-
-        // Hide on click outside
-        document.addEventListener("mousedown", (e) => {
-          if (!toolbar.contains(e.target) && e.target.id !== "editor-host") {
-            toolbar.style.display = "none";
-          }
-        });
-
-        toolbar.querySelectorAll("button").forEach((btn) => {
-          btn.addEventListener("mousedown", (e) => {
-            e.preventDefault(); // Prevent losing focus from editor
-          });
-        });
-      }
-
-      function execCmd(command, value = null) {
-        // FIX 1: Still using execCommand (The Zombie), but strictly on the Shadow Document
-        // Note: document.execCommand works on the active editable element (even in shadow) in most modern browsers.
-        document.execCommand(command, false, value);
-      }
-
-      function createLink() {
-        const url = prompt("Enter URL:", "https://");
-        if (url) execCmd("createLink", url);
-      }
-
-      function formatBlock(tag) {
-        execCmd("formatBlock", tag);
+        // Open the Fine-Grained token page (No auto-fill possible)
+        const url = "https://github.com/settings/personal-access-tokens/new";
+        window.open(url, "_blank");
       }
 
       async function saveConfigAndLogin() {
@@ -355,11 +393,11 @@
 
         if (!token || !owner || !repo) {
           msgBox.innerText = "Please fill in all fields.";
-          msgBox.style.color = "red";
+          msgBox.style.color = "#e74c3c";
           return;
         }
 
-        msgBox.innerText = "Connecting...";
+        msgBox.innerText = "Verifying credentials...";
         msgBox.style.color = "orange";
 
         try {
@@ -367,13 +405,26 @@
           const res = await fetch(url, {
             headers: { Authorization: `token ${token}` },
           });
-          if (!res.ok) throw new Error(`Error ${res.status}: No access.`);
+
+          if (!res.ok) {
+            if (res.status === 401)
+              throw new Error(
+                "Bad Token. Did you set 'Contents' to Read/Write?"
+              );
+            if (res.status === 404)
+              throw new Error(
+                "Repo not found. Check 'Repository access' in token."
+              );
+            throw new Error(`Error ${res.status}: Connection failed.`);
+          }
+
           const data = await res.json();
-          msgBox.innerText = `Logged in: ${data.full_name}`;
-          msgBox.style.color = "green";
+          msgBox.innerText = `Success! Logged in as: ${data.owner.login}`;
+          msgBox.style.color = "#2ecc71";
+
           config = { token, owner, repo };
-          // FIX 2: Save to SessionStorage (clears on tab close)
           sessionStorage.setItem("frankenstein_cfg", JSON.stringify(config));
+
           setTimeout(() => showDashboard(), 1000);
         } catch (e) {
           msgBox.innerText = e.message;
@@ -387,10 +438,59 @@
           location.reload();
         }
       }
+
       function showDashboard() {
         document.getElementById("login-screen").classList.remove("active");
         document.getElementById("dashboard-screen").classList.add("active");
         fetchFileList();
+      }
+
+      // --- EDITOR LOGIC ---
+
+      function initToolbar() {
+        const toolbar = document.getElementById("floating-toolbar");
+        document.addEventListener("selectionchange", updateToolbarPos);
+        setInterval(updateToolbarPos, 200);
+
+        function updateToolbarPos() {
+          if (!shadow) return;
+          const selection = shadow.getSelection();
+
+          if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
+            const range = selection.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+              toolbar.style.top = `${rect.top - 50}px`;
+              toolbar.style.left = `${rect.left + rect.width / 2}px`;
+              toolbar.style.display = "block";
+              return;
+            }
+          }
+          if (!toolbar.contains(document.activeElement)) {
+            // delay
+          }
+        }
+
+        document.addEventListener("mousedown", (e) => {
+          if (!toolbar.contains(e.target) && e.target.id !== "editor-host") {
+            toolbar.style.display = "none";
+          }
+        });
+
+        toolbar.querySelectorAll("button").forEach((btn) => {
+          btn.addEventListener("mousedown", (e) => e.preventDefault());
+        });
+      }
+
+      function execCmd(command, value = null) {
+        document.execCommand(command, false, value);
+      }
+      function createLink() {
+        const url = prompt("Enter URL:", "https://");
+        if (url) execCmd("createLink", url);
+      }
+      function formatBlock(tag) {
+        execCmd("formatBlock", tag);
       }
 
       function resolvePath(basePath, relativePath) {
@@ -411,10 +511,8 @@
       }
 
       async function loadAndInjectStyles(doc) {
-        // FIX 4: Inject styles into Shadow DOM, not main document
         const links = doc.querySelectorAll('link[rel="stylesheet"]');
         if (links.length === 0) return;
-
         const currentDir = currentPath.includes("/")
           ? currentPath.substring(0, currentPath.lastIndexOf("/"))
           : "";
@@ -436,7 +534,6 @@
                 escape(window.atob(data.content))
               );
 
-              // Inject into Shadow Root
               const styleTag = document.createElement("style");
               styleTag.textContent = cssContent;
               if (shadow) shadow.appendChild(styleTag);
@@ -480,13 +577,11 @@
 
       async function fetchFileList() {
         const listEl = document.getElementById("file-list");
-        listEl.innerHTML = '<li style="opacity:0.5">Searching...</li>';
+        listEl.innerHTML = '<li style="opacity:0.5">Scanning repo...</li>';
         try {
           const res = await fetch(
             `https://api.github.com/repos/${config.owner}/${config.repo}/contents/`,
-            {
-              headers: { Authorization: `token ${config.token}` },
-            }
+            { headers: { Authorization: `token ${config.token}` } }
           );
           if (!res.ok) throw new Error("Error fetching list.");
           const data = await res.json();
@@ -497,7 +592,7 @@
 
           listEl.innerHTML = "";
           if (htmlFiles.length === 0) {
-            listEl.innerHTML = "<li>No HTML found 🤷‍♂️</li>";
+            listEl.innerHTML = "<li>No HTML files found 🤷‍♂️</li>";
             return;
           }
 
@@ -520,7 +615,6 @@
         currentPath = path;
         document.getElementById("active-filename").innerText = path;
 
-        // FIX 4: Initialize Shadow DOM
         const host = document.getElementById("editor-host");
         if (!host.shadowRoot) {
           shadow = host.attachShadow({ mode: "open" });
@@ -528,46 +622,33 @@
           shadow = host.shadowRoot;
         }
 
-        // Default styling for the shadow dom editor area
-        shadow.innerHTML = `<div style="padding: 20px; color: #666;">Loading...</div>`;
+        shadow.innerHTML = `<div style="padding: 20px; color: #666; text-align:center;">Reanimating ${path}...</div>`;
         document.getElementById("saveBtn").style.display = "none";
 
         try {
           const res = await fetch(
             `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${path}`,
-            {
-              headers: { Authorization: `token ${config.token}` },
-            }
+            { headers: { Authorization: `token ${config.token}` } }
           );
           if (!res.ok) throw new Error("File not found.");
           const data = await res.json();
           currentSha = data.sha;
 
           const rawHTML = decodeURIComponent(escape(window.atob(data.content)));
-          originalRawHTML = rawHTML; // Save for XMLSerializer later
+          originalRawHTML = rawHTML;
 
           const parser = new DOMParser();
           const doc = parser.parseFromString(rawHTML, "text/html");
 
-          // Inject CSS into Shadow DOM
           await loadAndInjectStyles(doc);
           await fixImagesWithAuth(doc);
 
-          // Render Body into Shadow DOM
-          // We wrap it in a div to ensure we have a block to edit, or just dump body children
-          shadow.innerHTML = ""; // Clear loader
+          shadow.innerHTML = "";
 
-          // Re-add styles that were just fetched (since we cleared innerHTML)
-          // Actually, loadAndInjectStyles appends to shadow, so we need to be careful not to wipe them.
-          // Better approach: Create a container for content.
           const styleContainer = document.createElement("div");
           styleContainer.id = "cms-styles";
           shadow.appendChild(styleContainer);
 
-          // Re-fetch styles implies we append them again. Let's adjust logic slightly:
-          // We will let loadAndInjectStyles append to shadow.
-
-          // Insert Body Content
           const contentDiv = document.createElement("div");
           contentDiv.id = "editable-body";
           contentDiv.innerHTML = doc.body.innerHTML;
@@ -575,22 +656,19 @@
           contentDiv.style.minHeight = "200px";
           shadow.appendChild(contentDiv);
 
-          // Re-run style injection now that shadow is ready
           await loadAndInjectStyles(doc);
 
           const editables = shadow.querySelectorAll("[data-editable]");
           if (editables.length > 0) {
             editables.forEach((el) => (el.contentEditable = "true"));
           } else {
-            // If no data-editable, make the whole body editable? Or warn?
-            // For safety, let's just warn if nothing is editable
             if (contentDiv.innerText.trim().length === 0)
               contentDiv.innerHTML = "<p>Empty file</p>";
           }
 
           document.getElementById("saveBtn").style.display = "inline-block";
         } catch (e) {
-          shadow.innerHTML = `<p style="color:red">${e.message}</p>`;
+          shadow.innerHTML = `<p style="color:red; padding:20px;">${e.message}</p>`;
         }
       }
 
@@ -598,35 +676,26 @@
         const btn = document.getElementById("saveBtn");
         const status = document.getElementById("save-status");
         btn.disabled = true;
-        btn.innerText = "Serializing...";
-        status.innerText = "Saving...";
+        btn.innerText = "Stitching & Saving...";
+        status.innerText = "Pushing...";
 
         try {
-          // FIX 3: Robust Saving with XMLSerializer
-          // 1. Get the current edited content from Shadow DOM
           const contentContainer = shadow.getElementById("editable-body");
           const clone = contentContainer.cloneNode(true);
 
-          // Clean up editable attributes
           clone
             .querySelectorAll("[data-editable]")
             .forEach((el) => el.removeAttribute("contenteditable"));
-
-          // Restore images to original src
           const images = clone.querySelectorAll("img[data-original-src]");
           images.forEach((img) => {
             img.src = img.getAttribute("data-original-src");
             img.removeAttribute("data-original-src");
           });
 
-          // 2. Parse the ORIGINAL file again to get a clean DOM structure (Head, HTML attrs)
           const parser = new DOMParser();
           const doc = parser.parseFromString(originalRawHTML, "text/html");
-
-          // 3. Swap the body content
           doc.body.innerHTML = clone.innerHTML;
 
-          // 4. Use XMLSerializer to generate valid HTML string
           const serializer = new XMLSerializer();
           const newHTML = serializer.serializeToString(doc);
 
@@ -643,7 +712,7 @@
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                message: `Update ${currentPath} via Frankenstein`,
+                message: `Frankenstein update: ${currentPath}`,
                 content: encodedContent,
                 sha: currentSha,
               }),
@@ -653,7 +722,6 @@
           if (res.ok) {
             const data = await res.json();
             currentSha = data.content.sha;
-            // Update originalRawHTML so next save is based on this version
             originalRawHTML = newHTML;
             status.innerText = "✅ Saved!";
             setTimeout(() => (status.innerText = ""), 3000);
