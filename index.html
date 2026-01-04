@@ -2,156 +2,67 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Frankenstein CMS 🧟‍♂️</title>
+    <title>Frankenstein CMS v3.2 🧠</title>
+
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css"
+    />
+
+    <link
+      href="https://cdn.quilljs.com/1.3.6/quill.core.css"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
     <style>
-      :root {
-        --main-bg: #2c3e50;
-        --panel-bg: #34495e;
-        --accent: #e74c3c; /* Red: Because manual configuration is painful. */
-        --text: #ecf0f1;
-      }
       body {
-        font-family: "Segoe UI", sans-serif;
+        max-width: none;
         padding: 0;
         margin: 0;
-        background: var(--main-bg);
-        color: var(--text);
         height: 100vh;
         display: flex;
         flex-direction: column;
+        background: #0d1117;
       }
       .screen {
         display: none;
-        padding: 20px;
         height: 100%;
         box-sizing: border-box;
       }
       .screen.active {
         display: flex;
-        flex-direction: column;
       }
 
-      /* LOGIN SCREEN */
       #login-screen {
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        text-align: center;
+        padding: 20px;
       }
       .login-box {
-        background: var(--panel-bg);
+        background: #202b38;
         padding: 40px;
         border-radius: 10px;
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
         width: 100%;
-        max-width: 450px;
-        text-align: left;
-        position: relative;
-      }
-      .login-box h2 {
-        text-align: center;
-        margin-bottom: 5px;
-        color: var(--accent);
-      }
-      .login-box p.subtitle {
-        text-align: center;
-        margin-top: 0;
-        margin-bottom: 20px;
-        font-size: 0.9em;
-        opacity: 0.7;
-      }
-      label {
-        font-size: 0.8em;
-        font-weight: bold;
-        display: block;
-        margin-top: 10px;
-        color: #bdc3c7;
-      }
-      input {
-        width: 100%;
-        padding: 12px;
-        margin: 5px 0 15px 0;
-        background: #222;
-        border: 1px solid #555;
-        color: white;
-        border-radius: 4px;
-        box-sizing: border-box;
-        transition: border 0.2s;
-      }
-      input:focus {
-        border-color: var(--accent);
-        outline: none;
+        max-width: 500px;
       }
 
-      /* HELP / GUIDE SECTION */
-      .help-link {
-        display: block;
-        text-align: right;
-        font-size: 0.8em;
-        color: var(--accent);
-        text-decoration: none;
-        margin-top: -10px;
-        margin-bottom: 15px;
-        cursor: pointer;
-      }
-      .help-link:hover {
-        text-decoration: underline;
-      }
-
-      #token-guide {
-        display: none;
-        background: rgba(0, 0, 0, 0.3);
-        padding: 15px;
-        border-radius: 5px;
-        margin-bottom: 15px;
-        border-left: 3px solid var(--accent);
-        font-size: 0.85em;
-        line-height: 1.4;
-      }
-      #token-guide strong {
-        color: #fff;
-      }
-      #token-guide ul {
-        margin: 5px 0;
-        padding-left: 20px;
-        color: #ddd;
-      }
-
-      button {
-        width: 100%;
-        padding: 12px;
-        margin-top: 10px;
-        background: var(--accent);
-        color: white;
-        border: none;
-        cursor: pointer;
-        border-radius: 4px;
-        font-weight: bold;
-        transition: 0.2s;
-        font-size: 1em;
-      }
-      button:hover {
-        filter: brightness(1.1);
-      }
-      button.secondary {
-        background: #7f8c8d;
-      }
-      button.danger {
-        background: #c0392b;
-        margin-top: auto;
-      }
-
-      /* DASHBOARD */
       #dashboard-screen {
         flex-direction: row;
+        overflow: hidden;
       }
       .sidebar {
-        width: 250px;
-        background: var(--panel-bg);
+        width: 300px;
+        background: #161f27;
         padding: 20px;
         display: flex;
         flex-direction: column;
-        border-right: 1px solid #222;
-        z-index: 100;
+        border-right: 1px solid #333;
+        overflow-y: auto;
       }
       .main-content {
         flex: 1;
@@ -160,201 +71,203 @@
         flex-direction: column;
         overflow: hidden;
         position: relative;
+        background: #0d1117;
       }
 
-      /* EDITOR */
       #editor-wrapper {
         background: white;
-        color: black;
         flex: 1;
-        overflow-y: auto;
-        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
         border-radius: 4px;
         position: relative;
-        box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
-      }
-      #editor-host {
-        display: block;
-        min-height: 100%;
-        outline: none;
-        contain: content;
-        position: relative;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
       }
 
-      /* TOOLBAR */
-      #floating-toolbar {
-        position: absolute;
-        display: none;
-        background: #222;
-        padding: 5px;
-        border-radius: 5px;
-        z-index: 99999;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-        transform: translateX(-50%);
+      #editor-host {
+        flex: 1;
+        display: block;
+        overflow-y: auto;
+        position: relative;
+        background: white;
+        contain: content;
       }
-      #floating-toolbar button {
+
+      #telepathic-menu {
+        position: fixed;
+        z-index: 99999;
+        background: #222;
+        padding: 8px 12px;
+        border-radius: 8px;
+        display: none;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+        transform: translateX(-50%);
+        white-space: nowrap;
+        pointer-events: auto;
+      }
+      #telepathic-menu::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -6px;
+        border-width: 6px;
+        border-style: solid;
+        border-color: #222 transparent transparent transparent;
+      }
+      #telepathic-menu button {
         background: transparent;
-        color: white;
         border: none;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
         padding: 5px 10px;
         margin: 0;
+        font-size: 16px;
         width: auto;
-        cursor: pointer;
-        font-size: 14px;
+        display: inline-block;
       }
-      #floating-toolbar button:hover {
-        background: var(--accent);
-        color: white;
+      #telepathic-menu button:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: #62c4ff;
+        border-radius: 4px;
       }
-      #floating-toolbar .divider {
+      #telepathic-menu .divider {
         display: inline-block;
         width: 1px;
-        height: 15px;
+        height: 16px;
         background: #555;
         margin: 0 5px;
         vertical-align: middle;
       }
 
-      /* UTILS */
       #file-list {
         list-style: none;
         padding: 0;
         margin-top: 20px;
-        overflow-y: auto;
       }
       #file-list li {
         padding: 10px;
-        border-bottom: 1px solid #444;
+        border-bottom: 1px solid #333;
         cursor: pointer;
-        display: flex;
-        align-items: center;
-        word-break: break-all;
       }
       #file-list li:hover {
         background: rgba(255, 255, 255, 0.1);
-        color: var(--accent);
       }
       #file-list li.active {
-        background: var(--accent);
-        color: white;
+        background: var(--background-body);
+        border-left: 3px solid var(--selection);
+        font-weight: bold;
       }
+
       .status-bar {
-        margin-top: 10px;
+        margin-top: 15px;
         font-size: 0.85em;
-        color: #bdc3c7;
         text-align: center;
-        min-height: 1.2em;
       }
       .current-file-display {
-        background: #222;
-        padding: 10px;
-        margin-bottom: 10px;
-        border-radius: 4px;
-        font-family: monospace;
+        background: #202b38;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 6px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        z-index: 50;
+        font-family: monospace;
+      }
+      button.danger {
+        background-color: #e74c3c;
+        margin-top: auto;
+      }
+      button.action {
+        width: auto;
+        margin: 0;
       }
     </style>
   </head>
   <body>
-    <div id="floating-toolbar">
-      <button onclick="execCmd('bold')" title="Bold"><b>B</b></button>
-      <button onclick="execCmd('italic')" title="Italic"><i>I</i></button>
-      <button onclick="execCmd('underline')" title="Underline"><u>U</u></button>
+    <div id="telepathic-menu">
+      <button onmousedown="fmt('bold')" title="Bold">B</button>
+      <button onmousedown="fmt('italic')" title="Italic">I</button>
+      <button onmousedown="fmt('underline')" title="Underline">U</button>
       <div class="divider"></div>
-      <button onclick="formatBlock('H2')" title="Heading 2">H2</button>
-      <button onclick="formatBlock('H3')" title="Heading 3">H3</button>
-      <button onclick="formatBlock('P')" title="Paragraph">P</button>
+      <button onmousedown="fmt('header', 2)" title="Heading 2">H2</button>
+      <button onmousedown="fmt('header', 3)" title="Heading 3">H3</button>
       <div class="divider"></div>
-      <button onclick="createLink()" title="Link">🔗</button>
-      <button onclick="execCmd('unlink')" title="Remove link">❌</button>
+      <button onmousedown="askLink()" title="Link">🔗</button>
+      <button onmousedown="fmt('link', false)" title="Unlink">❌</button>
     </div>
 
     <div id="login-screen" class="screen active">
       <div class="login-box">
-        <h2>🧟‍♂️ Frankenstein</h2>
-        <p class="subtitle">A working CMS</p>
-
-        <label>1. GitHub Token (Fine-Grained)</label>
+        <h2 style="text-align: center; margin-top: 0">🧟‍♂️ Frankenstein CMS</h2>
+        <p style="text-align: center; opacity: 0.7; margin-bottom: 30px">
+          v3.2: Quill Event Fix
+        </p>
+        <label>1. GitHub Token</label>
         <input
           type="password"
           id="cfg-token"
           placeholder="github_pat_xxxxxxxxxxxx"
         />
-        <a href="#" onclick="openTokenPage()" class="help-link"
-          >🔑 Generate Fine-Grained Token</a
-        >
-
-        <div id="token-guide">
-          <strong>GitHub doesn't auto-fill this form.</strong><br />
-          Please check these boxes manually:
-          <ul>
-            <li>
-              <strong>Repository access:</strong> Select "Only select
-              repositories" -> Choose this repo.
-            </li>
-            <li>
-              <strong>Permissions:</strong> Click "Repository permissions".
-            </li>
-            <li>
-              Scroll to <strong>Contents</strong> -> Change to
-              <strong>Read and write</strong>.
-            </li>
-          </ul>
-        </div>
-
         <label>2. GitHub Username</label>
-        <input type="text" id="cfg-owner" placeholder="e.g. jpdeerenberg" />
-
+        <input type="text" id="cfg-owner" placeholder="e.g. lex-luthor" />
         <label>3. Repository Name</label>
-        <input type="text" id="cfg-repo" placeholder="e.g. frankenstein-cms" />
-
-        <button onclick="saveConfigAndLogin()">🔓 Connect & Login</button>
+        <input
+          type="text"
+          id="cfg-repo"
+          placeholder="e.g. kill-superman-script"
+        />
+        <hr style="margin: 20px 0; border-color: #444" />
+        <label style="color: #62c4ff">🔐 Session Password</label>
+        <input type="password" id="cfg-password" placeholder="Password" />
+        <button onclick="saveConfigAndLogin()">🔓 Connect</button>
         <div id="login-msg" class="status-bar"></div>
       </div>
     </div>
 
     <div id="dashboard-screen" class="screen">
       <div class="sidebar">
-        <h3>🗂 Files</h3>
-        <button class="secondary" onclick="fetchFileList()">
-          🔄 Refresh List
-        </button>
+        <h3 style="margin-top: 0">🗂 Files</h3>
+        <button onclick="fetchFileList()">🔄 Refresh</button>
         <ul id="file-list">
-          <li style="font-style: italic; opacity: 0.5">Loading...</li>
+          <li style="font-style: italic; opacity: 0.5">Laden...</li>
         </ul>
-        <button class="danger" onclick="logout()">🚪 Log out</button>
+        <div
+          style="
+            margin-top: 20px;
+            font-size: 0.8em;
+            color: #aaa;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            border-radius: 4px;
+          "
+        >
+          <strong>💡 Tip:</strong><br />
+          Select text in a red box. The menu appears instantly.
+        </div>
+        <button class="danger" onclick="logout()">🚪 Logout</button>
       </div>
 
       <div class="main-content">
         <div class="current-file-display">
-          <span id="active-filename">No file selected</span>
-          <span
-            id="save-status"
-            style="font-size: 0.8em; color: #f1c40f"
-          ></span>
+          <span id="active-filename">...</span>
+          <span id="save-status" style="color: #f1c40f"></span>
         </div>
-
         <div id="editor-wrapper">
           <div id="editor-host"></div>
         </div>
-
-        <button
-          onclick="slaOp()"
-          id="saveBtn"
-          style="
-            display: none;
-            width: auto;
-            align-self: flex-end;
-            padding: 10px 30px;
-            margin-top: 10px;
-            z-index: 50;
-          "
-        >
-          💾 Save & Push to Git
-        </button>
+        <div style="display: flex; justify-content: flex-end; margin-top: 15px">
+          <button
+            id="saveBtn"
+            class="action"
+            onclick="slaOp()"
+            style="display: none"
+          >
+            💾 Save & Push
+          </button>
+        </div>
       </div>
     </div>
 
@@ -364,77 +277,68 @@
       let originalRawHTML = "";
       let currentPath = "";
       let shadow = null;
+      let activeQuill = null;
 
-      window.onload = () => {
-        const saved = sessionStorage.getItem("frankenstein_cfg");
-        if (saved) {
-          config = JSON.parse(saved);
-          showDashboard();
+      function encryptConfig(conf, password) {
+        try {
+          const ciphertext = CryptoJS.AES.encrypt(
+            JSON.stringify(conf),
+            password
+          ).toString();
+          localStorage.setItem("frankenstein_encrypted_cfg", ciphertext);
+          return true;
+        } catch (e) {
+          return false;
         }
-        initToolbar();
-      };
-
-      // --- LOGIN LOGIC ---
-
-      function openTokenPage() {
-        // Show the guide because the user is about to be confused
-        document.getElementById("token-guide").style.display = "block";
-
-        // Open the Fine-Grained token page (No auto-fill possible)
-        const url = "https://github.com/settings/personal-access-tokens/new";
-        window.open(url, "_blank");
       }
-
+      function decryptConfig(password) {
+        try {
+          const ciphertext = localStorage.getItem("frankenstein_encrypted_cfg");
+          if (!ciphertext) return null;
+          const bytes = CryptoJS.AES.decrypt(ciphertext, password);
+          return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+        } catch (e) {
+          return null;
+        }
+      }
+      window.onload = () => {
+        const hasData = localStorage.getItem("frankenstein_encrypted_cfg");
+        if (hasData) {
+          const password = prompt("🔐 Session password:");
+          if (!password) return;
+          const decrypted = decryptConfig(password);
+          if (decrypted) {
+            config = decrypted;
+            showDashboard();
+          } else {
+            alert("❌ Wrong password.");
+          }
+        }
+      };
       async function saveConfigAndLogin() {
         const token = document.getElementById("cfg-token").value.trim();
         const owner = document.getElementById("cfg-owner").value.trim();
         const repo = document.getElementById("cfg-repo").value.trim();
-        const msgBox = document.getElementById("login-msg");
-
-        if (!token || !owner || !repo) {
-          msgBox.innerText = "Please fill in all fields.";
-          msgBox.style.color = "#e74c3c";
-          return;
-        }
-
-        msgBox.innerText = "Verifying credentials...";
-        msgBox.style.color = "orange";
+        const password = document.getElementById("cfg-password").value.trim();
+        if (!token || !owner || !repo || !password)
+          return alert("Please fill in all fields.");
 
         try {
-          const url = `https://api.github.com/repos/${owner}/${repo}`;
-          const res = await fetch(url, {
-            headers: { Authorization: `token ${token}` },
-          });
-
-          if (!res.ok) {
-            if (res.status === 401)
-              throw new Error(
-                "Bad Token. Did you set 'Contents' to Read/Write?"
-              );
-            if (res.status === 404)
-              throw new Error(
-                "Repo not found. Check 'Repository access' in token."
-              );
-            throw new Error(`Error ${res.status}: Connection failed.`);
-          }
-
-          const data = await res.json();
-          msgBox.innerText = `Success! Logged in as: ${data.owner.login}`;
-          msgBox.style.color = "#2ecc71";
-
+          const res = await fetch(
+            `https://api.github.com/repos/${owner}/${repo}`,
+            { headers: { Authorization: `token ${token}` } }
+          );
+          if (!res.ok) throw new Error("GitHub error");
           config = { token, owner, repo };
-          sessionStorage.setItem("frankenstein_cfg", JSON.stringify(config));
-
-          setTimeout(() => showDashboard(), 1000);
+          encryptConfig(config, password);
+          showDashboard();
         } catch (e) {
-          msgBox.innerText = e.message;
-          msgBox.style.color = "#e74c3c";
+          alert(e.message);
         }
       }
-
       function logout() {
-        if (confirm("Log out?")) {
-          sessionStorage.removeItem("frankenstein_cfg");
+        if (confirm("Logout?")) {
+          localStorage.removeItem("frankenstein_encrypted_cfg");
           location.reload();
         }
       }
@@ -445,226 +349,261 @@
         fetchFileList();
       }
 
-      // --- EDITOR LOGIC ---
+      const menu = document.getElementById("telepathic-menu");
 
-      function initToolbar() {
-        const toolbar = document.getElementById("floating-toolbar");
-        document.addEventListener("selectionchange", updateToolbarPos);
-        setInterval(updateToolbarPos, 200);
+      window.fmt = function (type, val) {
+        if (!activeQuill) return;
 
-        function updateToolbarPos() {
-          if (!shadow) return;
-          const selection = shadow.getSelection();
+        const range = activeQuill.getSelection();
+        if (!range || range.length === 0) return;
 
-          if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
-            const range = selection.getRangeAt(0);
-            const rect = range.getBoundingClientRect();
-            if (rect.width > 0 && rect.height > 0) {
-              toolbar.style.top = `${rect.top - 50}px`;
-              toolbar.style.left = `${rect.left + rect.width / 2}px`;
-              toolbar.style.display = "block";
-              return;
-            }
-          }
-          if (!toolbar.contains(document.activeElement)) {
-            // delay
-          }
+        activeQuill.focus();
+
+        activeQuill.setSelection(range.index, range.length);
+
+        if (val === undefined) {
+          const currentFormat = activeQuill.getFormat(
+            range.index,
+            range.length
+          );
+          activeQuill.format(type, !currentFormat[type]);
+        } else {
+          activeQuill.format(type, val);
         }
+      };
 
-        document.addEventListener("mousedown", (e) => {
-          if (!toolbar.contains(e.target) && e.target.id !== "editor-host") {
-            toolbar.style.display = "none";
-          }
-        });
+      window.askLink = function () {
+        if (!activeQuill) return;
 
-        toolbar.querySelectorAll("button").forEach((btn) => {
-          btn.addEventListener("mousedown", (e) => e.preventDefault());
-        });
-      }
+        const range = activeQuill.getSelection();
+        if (!range || range.length === 0) return;
 
-      function execCmd(command, value = null) {
-        document.execCommand(command, false, value);
-      }
-      function createLink() {
-        const url = prompt("Enter URL:", "https://");
-        if (url) execCmd("createLink", url);
-      }
-      function formatBlock(tag) {
-        execCmd("formatBlock", tag);
-      }
+        activeQuill.focus();
 
-      function resolvePath(basePath, relativePath) {
-        if (relativePath.startsWith("/")) return relativePath.substring(1);
-        const stack = basePath
-          ? basePath.split("/").filter((p) => p.length > 0)
-          : [];
-        const parts = relativePath.split("/");
-        for (const part of parts) {
-          if (part === "." || part === "") continue;
-          if (part === "..") {
-            if (stack.length > 0) stack.pop();
-          } else {
-            stack.push(part);
-          }
+        activeQuill.setSelection(range.index, range.length);
+
+        const url = prompt("URL:", "https://");
+        if (url) {
+          activeQuill.format("link", url);
         }
+      };
+
+      function resolvePath(base, rel) {
+        if (rel.startsWith("/")) return rel.substring(1);
+        const stack = base ? base.split("/").filter((p) => p.length) : [];
+        rel.split("/").forEach((p) => {
+          if (p == "..") {
+            if (stack.length) stack.pop();
+          } else if (p != "." && p != "") stack.push(p);
+        });
         return stack.join("/");
       }
 
-      async function loadAndInjectStyles(doc) {
-        const links = doc.querySelectorAll('link[rel="stylesheet"]');
-        if (links.length === 0) return;
-        const currentDir = currentPath.includes("/")
-          ? currentPath.substring(0, currentPath.lastIndexOf("/"))
-          : "";
-
-        await Promise.all(
-          Array.from(links).map(async (link) => {
-            const href = link.getAttribute("href");
-            if (!href || href.startsWith("http") || href.startsWith("//"))
-              return;
-            const apiPath = resolvePath(currentDir, href);
-            try {
-              const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${apiPath}`;
-              const res = await fetch(url, {
-                headers: { Authorization: `token ${config.token}` },
-              });
-              if (!res.ok) throw new Error("404 CSS");
-              const data = await res.json();
-              const cssContent = decodeURIComponent(
-                escape(window.atob(data.content))
-              );
-
-              const styleTag = document.createElement("style");
-              styleTag.textContent = cssContent;
-              if (shadow) shadow.appendChild(styleTag);
-            } catch (e) {
-              console.warn("Failed CSS:", apiPath);
-            }
-          })
-        );
-      }
-
-      async function fixImagesWithAuth(doc) {
-        const images = doc.querySelectorAll("img");
-        const currentDir = currentPath.includes("/")
-          ? currentPath.substring(0, currentPath.lastIndexOf("/"))
-          : "";
-
-        const promises = Array.from(images).map(async (img) => {
-          const src = img.getAttribute("src");
-          if (!src || src.startsWith("http") || src.startsWith("data:")) return;
-
-          img.setAttribute("data-original-src", src);
-          const apiPath = resolvePath(currentDir, src);
-          try {
-            const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${apiPath}`;
-            const res = await fetch(url, {
-              headers: {
-                Authorization: `token ${config.token}`,
-                Accept: "application/vnd.github.v3.raw",
-              },
-            });
-            if (!res.ok) throw new Error("404 Img");
-            const blob = await res.blob();
-            img.src = URL.createObjectURL(blob);
-          } catch (e) {
-            console.warn(`Image broken: ${src}`, e);
-            img.style.border = "2px solid red";
-          }
-        });
-        await Promise.all(promises);
-      }
-
-      async function fetchFileList() {
-        const listEl = document.getElementById("file-list");
-        listEl.innerHTML = '<li style="opacity:0.5">Scanning repo...</li>';
-        try {
-          const res = await fetch(
-            `https://api.github.com/repos/${config.owner}/${config.repo}/contents/`,
-            { headers: { Authorization: `token ${config.token}` } }
-          );
-          if (!res.ok) throw new Error("Error fetching list.");
-          const data = await res.json();
-          if (!Array.isArray(data)) throw new Error("No files.");
-          const htmlFiles = data.filter(
-            (f) => f.name.endsWith(".html") && f.type === "file"
-          );
-
-          listEl.innerHTML = "";
-          if (htmlFiles.length === 0) {
-            listEl.innerHTML = "<li>No HTML files found 🤷‍♂️</li>";
-            return;
-          }
-
-          htmlFiles.forEach((file) => {
-            const li = document.createElement("li");
-            li.innerText = file.name;
-            li.onclick = () => loadFile(file.path, li);
-            listEl.appendChild(li);
-          });
-        } catch (e) {
-          listEl.innerHTML = `<li style="color:red; font-size:0.8em">${e.message}</li>`;
-        }
-      }
-
       async function loadFile(path, menuElement) {
-        document
-          .querySelectorAll("#file-list li")
-          .forEach((l) => l.classList.remove("active"));
-        if (menuElement) menuElement.classList.add("active");
+        if (menuElement) {
+          document
+            .querySelectorAll("#file-list li")
+            .forEach((l) => l.classList.remove("active"));
+          menuElement.classList.add("active");
+        }
         currentPath = path;
         document.getElementById("active-filename").innerText = path;
 
         const host = document.getElementById("editor-host");
-        if (!host.shadowRoot) {
-          shadow = host.attachShadow({ mode: "open" });
-        } else {
-          shadow = host.shadowRoot;
-        }
+        if (!host.shadowRoot) shadow = host.attachShadow({ mode: "open" });
+        else shadow = host.shadowRoot;
 
-        shadow.innerHTML = `<div style="padding: 20px; color: #666; text-align:center;">Reanimating ${path}...</div>`;
+        shadow.innerHTML = `<div style="padding:20px; color:#666;">Loading...</div>`;
         document.getElementById("saveBtn").style.display = "none";
+        menu.style.display = "none";
 
         try {
           const res = await fetch(
             `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${path}`,
             { headers: { Authorization: `token ${config.token}` } }
           );
-          if (!res.ok) throw new Error("File not found.");
           const data = await res.json();
           currentSha = data.sha;
-
-          const rawHTML = decodeURIComponent(escape(window.atob(data.content)));
-          originalRawHTML = rawHTML;
+          originalRawHTML = decodeURIComponent(
+            escape(window.atob(data.content))
+          );
 
           const parser = new DOMParser();
-          const doc = parser.parseFromString(rawHTML, "text/html");
-
-          await loadAndInjectStyles(doc);
-          await fixImagesWithAuth(doc);
+          const doc = parser.parseFromString(originalRawHTML, "text/html");
 
           shadow.innerHTML = "";
 
-          const styleContainer = document.createElement("div");
-          styleContainer.id = "cms-styles";
-          shadow.appendChild(styleContainer);
+          const qCss = document.createElement("link");
+          qCss.rel = "stylesheet";
+          qCss.href = "https://cdn.quilljs.com/1.3.6/quill.core.css";
+          shadow.appendChild(qCss);
 
-          const contentDiv = document.createElement("div");
-          contentDiv.id = "editable-body";
-          contentDiv.innerHTML = doc.body.innerHTML;
-          contentDiv.style.outline = "none";
-          contentDiv.style.minHeight = "200px";
-          shadow.appendChild(contentDiv);
+          const styleFix = document.createElement("style");
+          styleFix.textContent = `
+            .ql-editor { 
+              padding: 0 !important; 
+              overflow-y: visible; 
+              font-family: inherit; 
+              font-size: inherit;
+              margin: 0 !important;
+            }
+            .ql-container { 
+              font-family: inherit; 
+              font-size: inherit;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+            [data-editable] { 
+              border: 2px dashed #e74c3c; 
+              cursor: text;
+              padding: 0 !important;
+              margin: 0 !important;
+              box-sizing: border-box;
+              display: block;
+            }
+            [data-editable]:hover { 
+              border-style: solid; 
+            }
+            a { cursor: alias !important; } 
+          `;
+          shadow.appendChild(styleFix);
 
-          await loadAndInjectStyles(doc);
+          const pageWrapper = document.createElement("div");
+          pageWrapper.id = "cms-page-content";
+          pageWrapper.innerHTML = doc.body.innerHTML;
+          shadow.appendChild(pageWrapper);
 
-          const editables = shadow.querySelectorAll("[data-editable]");
-          if (editables.length > 0) {
-            editables.forEach((el) => (el.contentEditable = "true"));
-          } else {
-            if (contentDiv.innerText.trim().length === 0)
-              contentDiv.innerHTML = "<p>Empty file</p>";
-          }
+          const links = doc.querySelectorAll('link[rel="stylesheet"]');
+          const currentDir = currentPath.includes("/")
+            ? currentPath.substring(0, currentPath.lastIndexOf("/"))
+            : "";
+          links.forEach(async (l) => {
+            try {
+              const href = l.getAttribute("href");
+              if (!href || href.startsWith("http")) return;
+              const r = await fetch(
+                `https://api.github.com/repos/${config.owner}/${
+                  config.repo
+                }/contents/${resolvePath(currentDir, href)}`,
+                { headers: { Authorization: `token ${config.token}` } }
+              );
+              const d = await r.json();
+              const s = document.createElement("style");
+              s.textContent = decodeURIComponent(
+                escape(window.atob(d.content))
+              );
+              shadow.appendChild(s);
+            } catch (e) {}
+          });
+
+          const imgs = pageWrapper.querySelectorAll("img");
+          imgs.forEach(async (img) => {
+            const src = img.getAttribute("src");
+            if (!src || src.startsWith("http")) return;
+            img.setAttribute("data-original-src", src);
+            try {
+              const r = await fetch(
+                `https://api.github.com/repos/${config.owner}/${
+                  config.repo
+                }/contents/${resolvePath(currentDir, src)}`,
+                {
+                  headers: {
+                    Authorization: `token ${config.token}`,
+                    Accept: "application/vnd.github.v3.raw",
+                  },
+                }
+              );
+              if (r.ok) img.src = URL.createObjectURL(await r.blob());
+            } catch (e) {}
+          });
+
+          pageWrapper
+            .querySelectorAll("a")
+            .forEach((a) =>
+              a.addEventListener("click", (e) => e.preventDefault())
+            );
+
+          const editables = pageWrapper.querySelectorAll("[data-editable]");
+          editables.forEach((el) => {
+            const q = new Quill(el, {
+              formats: [
+                "header",
+                "bold",
+                "italic",
+                "underline",
+                "link",
+                "image",
+                "list",
+              ],
+              modules: { toolbar: false },
+            });
+            el.__quill = q;
+
+            function showMenuAtRect(rect, quillInstance) {
+              activeQuill = quillInstance || activeQuill;
+              const top = rect.top - 50;
+              const left = rect.left + rect.width / 2;
+              menu.style.top = `${top}px`;
+              menu.style.left = `${left}px`;
+              menu.style.display = "block";
+            }
+
+            const handleSelection = () => {
+              try {
+                const sel = window.getSelection();
+                if (
+                  !sel ||
+                  sel.rangeCount === 0 ||
+                  sel.toString().length === 0
+                ) {
+                  menu.style.display = "none";
+                  return;
+                }
+
+                const r = sel.getRangeAt(0);
+                if (
+                  el.contains(r.startContainer) ||
+                  el.contains(r.commonAncestorContainer)
+                ) {
+                  activeQuill = q;
+                  showMenuAtRect(r.getBoundingClientRect(), q);
+                } else {
+                  menu.style.display = "none";
+                }
+              } catch (e) {
+                menu.style.display = "none";
+              }
+            };
+
+            q.on("selection-change", function (range) {
+              if (range && range.length > 0) {
+                activeQuill = q;
+
+                try {
+                  const bounds = q.getBounds(range.index, range.length);
+                  const containerRect = q.container.getBoundingClientRect();
+                  const top = containerRect.top + bounds.top - 50;
+                  const left =
+                    containerRect.left + bounds.left + bounds.width / 2;
+                  menu.style.top = `${top}px`;
+                  menu.style.left = `${left}px`;
+                  menu.style.display = "block";
+                } catch (e) {
+                  handleSelection();
+                }
+              } else {
+                menu.style.display = "none";
+              }
+            });
+
+            const qlEditor = el.querySelector(".ql-editor");
+            if (qlEditor) {
+              qlEditor.addEventListener("mouseup", handleSelection);
+              qlEditor.addEventListener("keyup", handleSelection);
+            }
+          });
+
+          host.addEventListener("scroll", () => (menu.style.display = "none"));
 
           document.getElementById("saveBtn").style.display = "inline-block";
         } catch (e) {
@@ -672,38 +611,66 @@
         }
       }
 
+      async function fetchFileList() {
+        const listEl = document.getElementById("file-list");
+        try {
+          const res = await fetch(
+            `https://api.github.com/repos/${config.owner}/${config.repo}/contents/`,
+            { headers: { Authorization: `token ${config.token}` } }
+          );
+          const data = await res.json();
+          listEl.innerHTML = "";
+          data
+            .filter((f) => f.name.endsWith(".html"))
+            .forEach((file) => {
+              const li = document.createElement("li");
+              li.innerText = file.name;
+              li.onclick = () => loadFile(file.path, li);
+              listEl.appendChild(li);
+            });
+        } catch (e) {
+          listEl.innerHTML = "Error";
+        }
+      }
+
       async function slaOp() {
         const btn = document.getElementById("saveBtn");
-        const status = document.getElementById("save-status");
+        btn.innerText = "Saving...";
         btn.disabled = true;
-        btn.innerText = "Stitching & Saving...";
-        status.innerText = "Pushing...";
-
         try {
-          const contentContainer = shadow.getElementById("editable-body");
-          const clone = contentContainer.cloneNode(true);
+          const wrapper = shadow.getElementById("cms-page-content");
+          const clone = wrapper.cloneNode(true);
 
-          clone
-            .querySelectorAll("[data-editable]")
-            .forEach((el) => el.removeAttribute("contenteditable"));
-          const images = clone.querySelectorAll("img[data-original-src]");
-          images.forEach((img) => {
-            img.src = img.getAttribute("data-original-src");
-            img.removeAttribute("data-original-src");
+          clone.querySelectorAll(".ql-editor").forEach((ed) => {
+            const cleanHTML = ed.innerHTML;
+            const parent = ed.parentElement;
+            parent.innerHTML = cleanHTML;
+            parent.classList.remove(
+              "ql-container",
+              "ql-disabled",
+              "ql-snow",
+              "ql-core"
+            );
+            parent.removeAttribute("contenteditable");
+            parent
+              .querySelectorAll(".ql-tooltip, .ql-clipboard")
+              .forEach((x) => x.remove());
+            delete parent.__quill;
+          });
+
+          clone.querySelectorAll("img[data-original-src]").forEach((i) => {
+            i.src = i.getAttribute("data-original-src");
+            i.removeAttribute("data-original-src");
           });
 
           const parser = new DOMParser();
           const doc = parser.parseFromString(originalRawHTML, "text/html");
           doc.body.innerHTML = clone.innerHTML;
 
-          const serializer = new XMLSerializer();
-          const newHTML = serializer.serializeToString(doc);
+          const newHTML = new XMLSerializer().serializeToString(doc);
+          const encoded = window.btoa(unescape(encodeURIComponent(newHTML)));
 
-          const encodedContent = window.btoa(
-            unescape(encodeURIComponent(newHTML))
-          );
-
-          const res = await fetch(
+          await fetch(
             `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${currentPath}`,
             {
               method: "PUT",
@@ -712,29 +679,25 @@
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                message: `Frankenstein update: ${currentPath}`,
-                content: encodedContent,
+                message: "Frankenstein Save",
+                content: encoded,
                 sha: currentSha,
               }),
             }
           );
 
-          if (res.ok) {
-            const data = await res.json();
-            currentSha = data.content.sha;
-            originalRawHTML = newHTML;
-            status.innerText = "✅ Saved!";
-            setTimeout(() => (status.innerText = ""), 3000);
-          } else {
-            throw new Error((await res.json()).message);
-          }
+          const r = await fetch(
+            `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${currentPath}`,
+            { headers: { Authorization: `token ${config.token}` } }
+          );
+          currentSha = (await r.json()).sha;
+          originalRawHTML = newHTML;
+          alert("✅ Saved!");
         } catch (e) {
           alert("Error: " + e.message);
-          status.innerText = "❌";
-        } finally {
-          btn.disabled = false;
-          btn.innerText = "💾 Save & Push to Git";
         }
+        btn.innerText = "💾 Save & Push";
+        btn.disabled = false;
       }
     </script>
   </body>
