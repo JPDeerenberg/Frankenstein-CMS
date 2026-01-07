@@ -53,6 +53,9 @@ async function loadFile(path, menuElement) {
 
     const parser = new DOMParser();
     const doc = parser.parseFromString(originalRawHTML, "text/html");
+    if (window.SEO) SEO.initInputs(doc);
+
+    shadow.innerHTML = "";
 
     shadow.innerHTML = "";
 
@@ -359,6 +362,8 @@ async function slaOp() {
     const parser = new DOMParser();
     const doc = parser.parseFromString(originalRawHTML, "text/html");
     doc.body.innerHTML = clone.innerHTML;
+
+    if (window.SEO) SEO.applyToDoc(doc);
 
     const newHTML = new XMLSerializer().serializeToString(doc);
     const encoded =

@@ -23,6 +23,7 @@
     <script src="js/editor.js" defer></script>
     <script src="js/auth.js" defer></script>
     <script src="js/files.js" defer></script>
+    <script src="js/seo.js" defer></script>
 
     <style>
       body {
@@ -303,6 +304,89 @@
         width: auto;
         margin: 0;
       }
+
+      #seo-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(5px);
+        z-index: 100000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #seo-modal .login-box {
+        max-width: 500px;
+        width: 90%;
+      }
+
+      #seo-modal h3 {
+        color: white;
+        margin-top: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 15px;
+        margin-bottom: 20px;
+      }
+
+      #seo-modal textarea {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 12px 16px;
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid #334155;
+        border-radius: 12px;
+        color: white;
+        font-size: 1rem;
+        font-family: inherit;
+        resize: vertical;
+        min-height: 100px;
+        transition: all 0.2s ease;
+      }
+
+      #seo-modal textarea:focus {
+        outline: none;
+        border-color: #6366f1;
+        background: rgba(15, 23, 42, 0.9);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+      }
+
+      .input-hint {
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-top: 6px;
+        margin-bottom: 16px;
+        text-align: right;
+      }
+
+      .modal-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 24px;
+        justify-content: flex-end;
+      }
+
+      .modal-actions button {
+        margin-top: 0;
+        width: auto;
+        padding: 10px 20px;
+      }
+
+      button.btn-secondary {
+        background: transparent;
+        border: 1px solid #475569;
+        color: #94a3b8;
+      }
+      button.btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: #cbd5e1;
+        color: white;
+        transform: none;
+        box-shadow: none;
+      }
     </style>
   </head>
   <body>
@@ -350,8 +434,26 @@
         <h3 style="margin-top: 0">🗂 Files</h3>
         <button onclick="fetchFileList()">🔄 Refresh</button>
         <ul id="file-list">
-          <li style="font-style: italic; opacity: 0.5">Laden...</li>
+          <li style="font-style: italic; opacity: 0.5">Loading...</li>
         </ul>
+
+        <div style="margin-top: 20px">
+          <h3 style="margin-top: 0; font-size: 0.9em; color: #64748b">
+            PAGE OPTIONS
+          </h3>
+          <button
+            class="action"
+            onclick="SEO.openModal()"
+            style="
+              width: 100%;
+              text-align: left;
+              background: #1e293b;
+              border: 1px solid #334155;
+            "
+          >
+            ⚙️ SEO & Metadata
+          </button>
+        </div>
         <div
           style="
             margin-top: 20px;
@@ -404,6 +506,27 @@
           >
             💾 Save & Push
           </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="seo-modal">
+      <div class="login-box">
+        <h3>⚙️ Page Settings</h3>
+
+        <label for="seo-title">Page Title</label>
+        <input type="text" id="seo-title" placeholder="My great page" />
+        <p class="input-hint">Recommended: max 60 characters.</p>
+
+        <label for="seo-desc">Meta Description</label>
+        <textarea id="seo-desc" rows="4"></textarea>
+        <p class="input-hint">Recommended: max 160 characters.</p>
+
+        <div class="modal-actions">
+          <button class="btn-secondary" onclick="SEO.closeModal()">
+            Cancel
+          </button>
+          <button onclick="SEO.saveAndClose()">Save in editor</button>
         </div>
       </div>
     </div>
