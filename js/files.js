@@ -2,6 +2,20 @@
 
 async function fetchFileList() {
   const listEl = document.getElementById("file-list");
+
+  if (config.isDemo) {
+    listEl.innerHTML = "";
+    const demoFiles = [{ name: "demo_page.html", path: "demo_page.html" }];
+
+    demoFiles.forEach((file) => {
+      const li = document.createElement("li");
+      li.innerText = file.name;
+      li.onclick = () => loadFile(file.path, li);
+      listEl.appendChild(li);
+    });
+    return;
+  }
+
   try {
     const res = await fetch(
       `https://api.github.com/repos/${config.owner}/${config.repo}/contents/`,
@@ -41,11 +55,46 @@ async function loadFile(path, menuElement) {
   menu.style.display = "none";
 
   try {
-    const res = await fetch(
-      `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${path}`,
-      { headers: { Authorization: `token ${config.token}` } }
-    );
-    const data = await res.json();
+    let data;
+    if (config.isDemo) {
+      console.log("Fetching local demo file...");
+
+      try {
+        const response = await fetch("demo_page.html");
+
+        if (!response.ok) {
+          throw new Error(
+            `Kan demo_page.html niet vinden (Status: ${response.status}). Heb je het bestand wel aangemaakt?`
+          );
+        }
+
+        const textContent = await response.text();
+
+        data = {
+          sha: "demo-sha-local-file",
+          content: utf8ToBase64(textContent),
+        };
+      } catch (err) {
+        console.error("Demo fetch error:", err);
+        data = {
+          sha: "error",
+          content: utf8ToBase64(
+            "<h1>404 Demo Not Found</h1><p>Maak een bestand genaamd <code>demo_page.html</code> aan naast index.html!</p>"
+          ),
+        };
+      }
+    } else {
+      const res = await fetch(
+        `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${path}`,
+        { headers: { Authorization: `token ${config.token}` } }
+      );
+      data = await res.json();
+    }
+    currentSha = data.sha;
+    originalRawHTML =
+      base64ToUtf8(data.content) ||
+      decodeURIComponent(escape(window.atob(data.content)));
+
     currentSha = data.sha;
     originalRawHTML =
       base64ToUtf8(data.content) ||
@@ -110,6 +159,7 @@ async function loadFile(path, menuElement) {
         background: transparent !important;
         color: inherit !important;
         pointer-events: auto !important;
+        text-align: inherit !important;
       }
 
       [data-editable] > *:not(.quill-host) {
@@ -193,6 +243,8 @@ async function loadFile(path, menuElement) {
 
     const editables = pageWrapper.querySelectorAll("[data-editable]");
     editables.forEach((el) => {
+      if (!el.parentNode) return;
+
       if (el.tagName === "P") {
         const div = document.createElement("div");
         Array.from(el.attributes).forEach((attr) => {
@@ -228,6 +280,7 @@ async function loadFile(path, menuElement) {
           "link",
           "image",
           "list",
+          "align",
         ],
         modules: { toolbar: false },
       });
@@ -331,6 +384,18 @@ async function slaOp() {
     btn.disabled = true;
   }
   try {
+    if (config.isDemo) {
+      await new Promise((r) => setTimeout(r, 600));
+      setSaved();
+      if (!isAuto) alert("✅ Saved to the void! (This is just a demo)");
+
+      if (!isAuto) {
+        btn.innerText = "💾 Save & Push";
+        btn.disabled = false;
+      }
+      return;
+    }
+
     const fresh = await fetch(
       `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${currentPath}`,
       { headers: { Authorization: `token ${config.token}` } }

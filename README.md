@@ -2,9 +2,13 @@
 
 **Because CloudCannon is too expensive and your static site deserves a soul.**
 
+[![DEMO](https://img.shields.io/badge/LIVE-DEMO-brightgreen?style=for-the-badge)](https://jpdeerenberg.github.io/Frankenstein-CMS/)
+
 Frankenstein CMS is a **zero-install, single-folder content management system** specifically built for static HTML sites hosted on GitHub. No database, no Node.js overhead, no monthly subscriptions. Just one folder to dominate your repo via the official GitHub API.
 
 It uploads files directly to GitHub, making it work perfectly with **GitHub Pages, Cloudflare Pages, Netlify and other hosting services**.
+
+![Frankenstein Login Interface](/images/login.png)
 
 ---
 
@@ -24,6 +28,8 @@ Images in a private repository are normally invisible to an external editor. Fra
 
 When you hit "Save", the editor's DOM is stripped of all `contenteditable` attributes. Frankenstein reconstructs a full HTML document by merging the original `<head>` and `<html>` attributes with the new `<body>`. This entire package is Base64 encoded and pushed directly to GitHub.
 
+![Frankenstein Editor Interface](/images/editor.png)
+
 ---
 
 ## 🚀 Quick Start
@@ -33,7 +39,7 @@ When you hit "Save", the editor's DOM is stripped of all `contenteditable` attri
     <h2 data-editable>Change me, Doctor!</h2>
     ```
 2.  **Generate a Token:** Create a [GitHub Personal Access Token](https://github.com/settings/tokens) with the `repo` scope.
-3.  **Host the CMS:** Upload the `Frankenstein-CMS` folder to your repo or just open `index.html` locally. You can add the files in a /admin folder, this makes you able to use domain.com/admin for the CMS.
+3.  **Host the CMS:** Upload the `Frankenstein-CMS` folder to your repo. If you place it in a `/admin` subdirectory, you can access the CMS nicely at `domain.com/admin`.
 4.  **Login:** Enter your Token, Username, and Repo name. Choose a session password to keep your credentials encrypted locally via AES.
 
 ---

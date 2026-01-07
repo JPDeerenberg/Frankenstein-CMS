@@ -60,3 +60,18 @@ window.onload = () => {
     }
   }
 };
+
+function startDemo() {
+  config = {
+    token: "demo-token",
+    owner: "demo-user",
+    repo: "demo-repo",
+    isDemo: true,
+  };
+
+  document.getElementById("login-msg").innerText = "Entering simulation...";
+  setTimeout(() => {
+    showDashboard();
+    if (window.setSaved) window.setSaved();
+  }, 500);
+}
