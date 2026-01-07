@@ -189,6 +189,8 @@ async function loadFile(path, menuElement) {
       );
     });
 
+    const links = doc.querySelectorAll('link[rel="stylesheet"]');
+
     links.forEach(async (l) => {
       try {
         const href = l.getAttribute("href");
