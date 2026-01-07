@@ -58,3 +58,16 @@ When you hit "Save", the editor's DOM is stripped of all `contenteditable` attri
 - **Backups:** Frankenstein has no 'undo' button on the server. What you push is final (unless you dive into Git history).
 
 ---
+
+## ⚰️ Todo & Roadmap
+
+Planning.
+
+- [ ] **Git Time Travel (History & Revert):** The ability to retrieve old versions (commits) via the GitHub API. In case you accidentally demolish the place.
+- [ ] **Mobile Preview:** A button to narrow the editor to mobile size (375px), so you can see if the layout breaks on small screens.
+- [ ] **Giving Igor a brain:** Making Igor smarter than just counting words (e.g. broken link checker or SEO warnings).
+
+Later:
+
+- [ ] **Block Inserter Section:** A menu to inject ready-made HTML components directly into the data-editable container, maybe grabbing it from a seperate template file.
+- [ ] **Image Upload:** Support for uploading new images to the repo's '/img/' folder, so that the new sections don't remain naked.
