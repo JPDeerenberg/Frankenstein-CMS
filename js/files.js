@@ -66,7 +66,14 @@ async function loadFile(path, menuElement) {
 
     const styleFix = document.createElement("style");
     styleFix.textContent = `
-      /* Ensure editable containers behave as blocks and keep their height */
+    :host {
+        color: #1a1a1a; 
+      }
+
+      #cms-page-content {
+        color: #1a1a1a;
+    }
+
       [data-editable] {
         position: relative !important;
         display: block !important;
@@ -82,9 +89,6 @@ async function loadFile(path, menuElement) {
       [
       data-editable]:hover { border-style: solid; }
 
-      /* Force Quill host and container to occupy the element's flow
-         and avoid absolute positioning from page CSS that would overlay
-         the editor on top of the original text. */
       .quill-host, .ql-container {
         position: static !important;
         display: block !important;
@@ -94,8 +98,6 @@ async function loadFile(path, menuElement) {
         pointer-events: auto !important;
       }
 
-      /* Make sure the editor surface is placed correctly inside the
-         editable element and remains interactive. */
       .ql-editor {
         position: relative !important;
         z-index: 3 !important;
@@ -110,8 +112,6 @@ async function loadFile(path, menuElement) {
         pointer-events: auto !important;
       }
 
-      /* Prevent page CSS from absolutely positioning internal children
-         of the editable element above the Quill host. */
       [data-editable] > *:not(.quill-host) {
         position: static !important;
       }
@@ -120,6 +120,15 @@ async function loadFile(path, menuElement) {
 
     const pageWrapper = document.createElement("div");
     pageWrapper.id = "cms-page-content";
+
+    try {
+      pageWrapper.className = doc.body.className;
+      const bodyStyle = doc.body.getAttribute("style");
+      if (bodyStyle) pageWrapper.setAttribute("style", bodyStyle);
+    } catch (e) {
+      console.warn("Kon body styles niet kopiëren", e);
+    }
+
     pageWrapper.innerHTML = doc.body.innerHTML;
     shadow.appendChild(pageWrapper);
 
@@ -222,6 +231,8 @@ async function loadFile(path, menuElement) {
         ],
         modules: { toolbar: false },
       });
+
+      if (window.Igor) window.Igor.init(q);
 
       q.clipboard.dangerouslyPasteHTML(0, initialHtml);
       el.__quill = q;

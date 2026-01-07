@@ -24,6 +24,7 @@
     <script src="js/auth.js" defer></script>
     <script src="js/files.js" defer></script>
     <script src="js/seo.js" defer></script>
+    <script src="js/igor.js" defer></script>
 
     <style>
       body {
@@ -222,6 +223,7 @@
         flex: 1;
         transform: translate(0);
         contain: content;
+        color: #1a1a1a;
       }
 
       #telepathic-menu {
@@ -387,6 +389,35 @@
         transform: none;
         box-shadow: none;
       }
+
+      #igor-stats {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        color: black;
+        background: #f1f5f9;
+        padding: 4px 12px;
+        border-radius: 20px;
+        border: 1px solid #e2e8f0;
+        margin-right: auto;
+        margin-left: 15px;
+      }
+
+      .igor-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+        color: black;
+      }
+
+      .igor-divider {
+        width: 1px;
+        height: 12px;
+        background: #cbd5e1;
+        margin: 0 4px;
+      }
     </style>
   </head>
   <body>
@@ -474,8 +505,12 @@
         <div id="editor-wrapper">
           <div class="current-file-display">
             <span id="active-filename">...</span>
+
+            <div id="igor-stats"></div>
+
             <div style="display: flex; gap: 12px; align-items: center">
               <span id="save-status" style="color: #f1c40f"></span>
+
               <input
                 id="autosave-toggle"
                 type="checkbox"
@@ -487,6 +522,7 @@
                 style="opacity: 0.8; font-size: 0.9em"
                 >Autosave</label
               >
+
               <input
                 id="commit-msg"
                 placeholder="Commit message (optional)"
@@ -495,8 +531,10 @@
               />
             </div>
           </div>
+
           <div id="editor-host"></div>
         </div>
+
         <div style="display: flex; justify-content: flex-end; margin-top: 15px">
           <button
             id="saveBtn"
