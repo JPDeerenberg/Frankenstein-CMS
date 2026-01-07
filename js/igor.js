@@ -28,15 +28,15 @@ window.Igor = {
 
   render: function (words, chars, time) {
     let mood = "😐";
-    let comment = "Kort & Krachtig";
+    let comment = "Short & Powerful";
 
     if (words > 200) {
       mood = "🤔";
-      comment = "Goed bezig";
+      comment = "Good job";
     }
     if (words > 500) {
       mood = "📜";
-      comment = "Lekker lang";
+      comment = "Nice and long";
     }
     if (words > 1000) {
       mood = "😴";
