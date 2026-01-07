@@ -182,10 +182,13 @@ async function loadFile(path, menuElement) {
     pageWrapper.innerHTML = doc.body.innerHTML;
     shadow.appendChild(pageWrapper);
 
-    const links = doc.querySelectorAll('link[rel="stylesheet"]');
-    const currentDir = currentPath.includes("/")
-      ? currentPath.substring(0, currentPath.lastIndexOf("/"))
-      : "";
+    pageWrapper.querySelectorAll("style").forEach((s) => {
+      s.textContent = s.textContent.replace(
+        /(^|[\s,}])body(?=[\s,{])/gi,
+        "$1#cms-page-content"
+      );
+    });
+
     links.forEach(async (l) => {
       try {
         const href = l.getAttribute("href");
@@ -202,7 +205,8 @@ async function loadFile(path, menuElement) {
           }
         );
         if (!r.ok) return;
-        const css = await r.text();
+        let css = await r.text();
+        css = css.replace(/(^|[\s,}])body(?=[\s,{])/gi, "$1#cms-page-content");
         const s = document.createElement("style");
         s.textContent = css;
         shadow.appendChild(s);
