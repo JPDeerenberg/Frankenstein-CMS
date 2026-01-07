@@ -32,11 +32,14 @@
         height: 100vh;
         display: flex;
         flex-direction: column;
-        background: #0d1117;
+        background: #0f172a;
+        font-family: system-ui, -apple-system, sans-serif;
       }
+
       .screen {
         display: none;
         height: 100%;
+        width: 100%;
         box-sizing: border-box;
       }
       .screen.active {
@@ -48,14 +51,117 @@
         align-items: center;
         justify-content: center;
         padding: 20px;
+        background: radial-gradient(circle at 50% 0%, #2e1065 0%, #0f172a 60%);
+        position: relative;
+        overflow: hidden;
       }
+
+      #login-screen::before {
+        content: "";
+        position: absolute;
+        top: -20%;
+        left: -10%;
+        width: 600px;
+        height: 600px;
+        background: #4f46e5;
+        opacity: 0.15;
+        filter: blur(100px);
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 0;
+      }
+
       .login-box {
-        background: #202b38;
+        position: relative;
+        z-index: 10;
+        background: rgba(30, 41, 59, 0.7);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         padding: 40px;
-        border-radius: 10px;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        border-radius: 24px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         width: 100%;
-        max-width: 500px;
+        max-width: 400px;
+      }
+
+      .login-box h2 {
+        text-align: center;
+        margin-top: 0;
+        margin-bottom: 0.5rem;
+        font-size: 1.8rem;
+        background: linear-gradient(to right, #fff, #94a3b8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .login-box p.version-text {
+        text-align: center;
+        color: #64748b;
+        margin-bottom: 2rem;
+        font-size: 0.9rem;
+        margin-top: 0;
+      }
+
+      .login-box label {
+        display: block;
+        color: #cbd5e1;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 6px;
+        margin-top: 16px;
+      }
+
+      .login-box input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 12px 16px;
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid #334155;
+        border-radius: 12px;
+        color: white;
+        font-size: 1rem;
+        transition: all 0.2s ease;
+      }
+
+      .login-box input:focus {
+        outline: none;
+        border-color: #6366f1;
+        background: rgba(15, 23, 42, 0.9);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+      }
+
+      .login-box button {
+        width: 100%;
+        margin-top: 32px;
+        padding: 14px;
+        background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: transform 0.1s, box-shadow 0.2s;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .login-box button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4);
+      }
+
+      .login-box button:active {
+        transform: translateY(0);
+      }
+
+      #login-msg {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 0.9rem;
+        min-height: 1.2em;
+        color: #94a3b8;
       }
 
       #dashboard-screen {
@@ -64,11 +170,11 @@
       }
       .sidebar {
         width: 300px;
-        background: #161f27;
+        background: #0f172a;
         padding: 20px;
         display: flex;
         flex-direction: column;
-        border-right: 1px solid #333;
+        border-right: 1px solid #1e293b;
         overflow-y: auto;
       }
       .main-content {
@@ -78,7 +184,7 @@
         flex-direction: column;
         overflow: hidden;
         position: relative;
-        background: #0d1117;
+        background: #020617;
         gap: 15px;
       }
 
@@ -89,8 +195,9 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        border-radius: 4px;
-        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        border-radius: 8px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+          0 2px 4px -1px rgba(0, 0, 0, 0.06);
       }
 
       .current-file-display {
@@ -213,29 +320,28 @@
 
     <div id="login-screen" class="screen active">
       <div class="login-box">
-        <h2 style="text-align: center; margin-top: 0">🧟‍♂️ Frankenstein CMS</h2>
-        <p style="text-align: center; opacity: 0.7; margin-bottom: 30px">
-          Simple Github Editor
-        </p>
+        <h2>Frankenstein CMS</h2>
+
         <label>1. GitHub Token</label>
-        <input
-          type="password"
-          id="cfg-token"
-          placeholder="github_pat_xxxxxxxxxxxx"
-        />
+        <input type="password" id="cfg-token" placeholder="github_pat_..." />
+
         <label>2. GitHub Username</label>
-        <input type="text" id="cfg-owner" placeholder="e.g. lex-luthor" />
+        <input type="text" id="cfg-owner" placeholder="e.g. Lex-Luthor" />
+
         <label>3. Repository Name</label>
         <input
           type="text"
           id="cfg-repo"
           placeholder="e.g. kill-superman-page"
         />
-        <hr style="margin: 20px 0; border-color: #444" />
-        <label style="color: #62c4ff">🔐 Session Password</label>
-        <input type="password" id="cfg-password" placeholder="Password" />
+
+        <label style="color: #62c4ff; margin-top: 24px"
+          >🔐 Session Password</label
+        >
+        <input type="password" id="cfg-password" placeholder="••••••••" />
+
         <button onclick="saveConfigAndLogin()">🔓 Connect</button>
-        <div id="login-msg" class="status-bar"></div>
+        <div id="login-msg"></div>
       </div>
     </div>
 
