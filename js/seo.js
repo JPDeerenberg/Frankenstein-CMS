@@ -42,7 +42,7 @@ window.SEO = {
   openModal: function () {
     const activeFile = document.getElementById("active-filename");
     if (!activeFile || !activeFile.innerText.endsWith(".html")) {
-      alert("Open eerst een HTML pagina.");
+      alert("Open first an HTML file to edit SEO settings.");
       return;
     }
     document.getElementById("seo-modal").style.display = "flex";

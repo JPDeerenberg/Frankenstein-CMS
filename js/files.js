@@ -44,7 +44,6 @@ async function loadFile(path, menuElement) {
     menuElement.classList.add("active");
   }
   currentPath = path;
-  // FIX: Definieer currentDir zodat resolvePath weet waar we zijn
   const currentDir = path.includes("/")
     ? path.substring(0, path.lastIndexOf("/"))
     : "";
@@ -124,17 +123,13 @@ async function loadFile(path, menuElement) {
       [data-editable] {
         position: relative !important;
         display: block !important;
-        border: 2px dashed #e74c3c;
+        outline: 2px dashed #e74c3c;
+        outline-offset: 4px;
         cursor: text;
-        padding: 6px;
-
-        margin: 0 0 6px 0;
-        box-sizing: border-box;
         background: transparent !important;
         z-index: 1 !important;
       }
-      [
-      data-editable]:hover { border-style: solid; }
+      [data-editable]:hover { outline-style: solid; }
 
       .quill-host, .ql-container {
         position: static !important;
@@ -166,10 +161,8 @@ async function loadFile(path, menuElement) {
     `;
     shadow.appendChild(styleFix);
 
-    // FIX: Haal styles uit de HEAD en injecteer ze ook (voorheen genegeerd)
     doc.head.querySelectorAll("style").forEach((s) => {
       const newStyle = document.createElement("style");
-      // Zorg dat ze alleen op de content wrappen en niet lekken
       newStyle.textContent = s.textContent.replace(
         /(^|[\s,}])body(?=[\s,{])/gi,
         "$1#cms-page-content"
@@ -191,7 +184,6 @@ async function loadFile(path, menuElement) {
     pageWrapper.innerHTML = doc.body.innerHTML;
     shadow.appendChild(pageWrapper);
 
-    // Verwerk styles die in de body stonden (inline blocks)
     pageWrapper.querySelectorAll("style").forEach((s) => {
       s.textContent = s.textContent.replace(
         /(^|[\s,}])body(?=[\s,{])/gi,
@@ -200,13 +192,11 @@ async function loadFile(path, menuElement) {
     });
 
     const links = doc.querySelectorAll('link[rel="stylesheet"]');
-
-    links.forEach(async (l) => {
+    const cssPromises = Array.from(links).map(async (l) => {
       try {
         const href = l.getAttribute("href");
-        if (!href || href.startsWith("http")) return; // Externe links negeren we nog even ivm CORS
+        if (!href || href.startsWith("http")) return;
 
-        // FIX: Gebruik hier de correcte currentDir
         const r = await fetch(
           `https://api.github.com/repos/${config.owner}/${
             config.repo
@@ -229,13 +219,14 @@ async function loadFile(path, menuElement) {
       }
     });
 
+    await Promise.all(cssPromises);
+
     const imgs = pageWrapper.querySelectorAll("img");
     imgs.forEach(async (img) => {
       const src = img.getAttribute("src");
       if (!src || src.startsWith("http")) return;
       img.setAttribute("data-original-src", src);
       try {
-        // FIX: Ook hier currentDir gebruiken
         const r = await fetch(
           `https://api.github.com/repos/${config.owner}/${
             config.repo
@@ -266,11 +257,40 @@ async function loadFile(path, menuElement) {
     editables.forEach((el) => {
       if (!el.parentNode) return;
 
-      if (el.tagName === "P") {
+      if (["P", "H1", "H2", "H3", "H4", "H5", "H6"].includes(el.tagName)) {
         const div = document.createElement("div");
+
+        const s = window.getComputedStyle(el);
+
+        div.style.textAlign = s.textAlign;
+        div.style.fontSize = s.fontSize;
+        div.style.lineHeight = s.lineHeight;
+        div.style.color = s.color;
+        div.style.fontWeight = s.fontWeight;
+        div.style.maxWidth = s.maxWidth;
+        div.style.marginTop = s.marginTop;
+        div.style.marginBottom = s.marginBottom;
+
+        if (s.marginLeft === s.marginRight && parseFloat(s.marginLeft) > 0) {
+          div.style.marginLeft = "auto";
+          div.style.marginRight = "auto";
+        } else {
+          div.style.marginLeft = s.marginLeft;
+          div.style.marginRight = s.marginRight;
+        }
+
+        div.setAttribute("data-original-tag", el.tagName);
+        const originalStyleAttr = el.getAttribute("style");
+        if (originalStyleAttr) {
+          div.setAttribute("data-original-style", originalStyleAttr);
+        }
+
         Array.from(el.attributes).forEach((attr) => {
-          div.setAttribute(attr.name, attr.value);
+          if (attr.name !== "style") {
+            div.setAttribute(attr.name, attr.value);
+          }
         });
+
         div.innerHTML = el.innerHTML;
         el.parentNode.replaceChild(div, el);
         el = div;
@@ -449,6 +469,34 @@ async function slaOp() {
           "ql-disabled"
         );
       }
+    });
+
+    clone.querySelectorAll("[data-original-tag]").forEach((div) => {
+      const tagName = div.getAttribute("data-original-tag");
+      const originalEl = document.createElement(tagName);
+
+      Array.from(div.attributes).forEach((attr) => {
+        if (
+          !["data-original-tag", "data-original-style", "style"].includes(
+            attr.name
+          )
+        ) {
+          originalEl.setAttribute(attr.name, attr.value);
+        }
+      });
+
+      const originalStyle = div.getAttribute("data-original-style");
+      if (originalStyle) {
+        originalEl.setAttribute("style", originalStyle);
+      }
+
+      if (div.children.length === 1 && div.children[0].tagName === "P") {
+        originalEl.innerHTML = div.children[0].innerHTML;
+      } else {
+        originalEl.innerHTML = div.innerHTML;
+      }
+
+      div.parentNode.replaceChild(originalEl, div);
     });
 
     clone.querySelectorAll("img[data-original-src]").forEach((i) => {
