@@ -44,6 +44,11 @@ async function loadFile(path, menuElement) {
     menuElement.classList.add("active");
   }
   currentPath = path;
+  // FIX: Definieer currentDir zodat resolvePath weet waar we zijn
+  const currentDir = path.includes("/")
+    ? path.substring(0, path.lastIndexOf("/"))
+    : "";
+
   document.getElementById("active-filename").innerText = path;
 
   const host = document.getElementById("editor-host");
@@ -95,16 +100,9 @@ async function loadFile(path, menuElement) {
       base64ToUtf8(data.content) ||
       decodeURIComponent(escape(window.atob(data.content)));
 
-    currentSha = data.sha;
-    originalRawHTML =
-      base64ToUtf8(data.content) ||
-      decodeURIComponent(escape(window.atob(data.content)));
-
     const parser = new DOMParser();
     const doc = parser.parseFromString(originalRawHTML, "text/html");
     if (window.SEO) SEO.initInputs(doc);
-
-    shadow.innerHTML = "";
 
     shadow.innerHTML = "";
 
@@ -168,6 +166,17 @@ async function loadFile(path, menuElement) {
     `;
     shadow.appendChild(styleFix);
 
+    // FIX: Haal styles uit de HEAD en injecteer ze ook (voorheen genegeerd)
+    doc.head.querySelectorAll("style").forEach((s) => {
+      const newStyle = document.createElement("style");
+      // Zorg dat ze alleen op de content wrappen en niet lekken
+      newStyle.textContent = s.textContent.replace(
+        /(^|[\s,}])body(?=[\s,{])/gi,
+        "$1#cms-page-content"
+      );
+      shadow.appendChild(newStyle);
+    });
+
     const pageWrapper = document.createElement("div");
     pageWrapper.id = "cms-page-content";
 
@@ -182,6 +191,7 @@ async function loadFile(path, menuElement) {
     pageWrapper.innerHTML = doc.body.innerHTML;
     shadow.appendChild(pageWrapper);
 
+    // Verwerk styles die in de body stonden (inline blocks)
     pageWrapper.querySelectorAll("style").forEach((s) => {
       s.textContent = s.textContent.replace(
         /(^|[\s,}])body(?=[\s,{])/gi,
@@ -194,7 +204,9 @@ async function loadFile(path, menuElement) {
     links.forEach(async (l) => {
       try {
         const href = l.getAttribute("href");
-        if (!href || href.startsWith("http")) return;
+        if (!href || href.startsWith("http")) return; // Externe links negeren we nog even ivm CORS
+
+        // FIX: Gebruik hier de correcte currentDir
         const r = await fetch(
           `https://api.github.com/repos/${config.owner}/${
             config.repo
@@ -212,7 +224,9 @@ async function loadFile(path, menuElement) {
         const s = document.createElement("style");
         s.textContent = css;
         shadow.appendChild(s);
-      } catch (e) {}
+      } catch (e) {
+        console.error("Kon CSS niet laden:", e);
+      }
     });
 
     const imgs = pageWrapper.querySelectorAll("img");
@@ -221,6 +235,7 @@ async function loadFile(path, menuElement) {
       if (!src || src.startsWith("http")) return;
       img.setAttribute("data-original-src", src);
       try {
+        // FIX: Ook hier currentDir gebruiken
         const r = await fetch(
           `https://api.github.com/repos/${config.owner}/${
             config.repo
