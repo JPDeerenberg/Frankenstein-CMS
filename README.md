@@ -56,11 +56,15 @@ When you hit "Save", the editor's DOM is stripped of all `contenteditable` attri
 
 **Planning:**
 
+**IMPORTANT:** 
+- [ ] **Better Security:** Add better encryption and maybe an OAuth server option. Seed in local storage is still risky.  
 - [ ] **Git Time Travel (History & Revert):** The ability to retrieve old versions (commits) via the GitHub API. In case you accidentally demolish the place.
 - [ ] **Mobile Preview:** A button to narrow the editor to mobile size (375px), so you can see if the layout breaks on small screens.
 - [ ] **Giving Igor a brain:** Making Igor smarter than just counting words (e.g. broken link checker or SEO warnings).
+- [ ] **More SEO Options:** adding more options to edit the header and maybe have Igor help.
 
 **Later:**
 
+- [ ] **Phone Ready Editor:** An app for mobile devices to edit texts on the go. Maybe with just webview. 
 - [ ] **Block Inserter Section:** A menu to inject ready-made HTML components (like Google Sites) directly into the `data-editable` container.
 - [ ] **Image Upload:** Support for uploading new images to the repo's `/img/` folder, so that the new sections don't remain naked.
