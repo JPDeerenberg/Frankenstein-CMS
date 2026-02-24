@@ -32,23 +32,43 @@ When you hit "Save", the editor's DOM is stripped of all `contenteditable` attri
 
 ---
 
-## 🚀 Quick Start
+## 🚀 The Two Versions
 
-1.  **Prepare your HTML:** Add the `data-editable` attribute to any element you want to be able to edit.
-    ```html
-    <h2 data-editable>Change me, Doctor!</h2>
-    ```
-2.  **Generate a Token:** Create a [GitHub Personal Access Token](https://github.com/settings/tokens) with the `repo` scope.
-3.  **Host the CMS:** Upload the `Frankenstein-CMS` folder to your repo. If you place it in a `/admin` subdirectory, you can access the CMS nicely at `domain.com/admin`.
-4.  **Login:** Enter your Token, Username, and Repo name. Choose a session password to keep your credentials encrypted locally via AES.
+Frankenstein now comes in two flavors depending on your needs. Choose the folder that best fits your workflow.
+
+### 1. The `dev/` Version (Zero Setup)
+
+Perfect for personal projects or developers who want to manage their own sites. It talks directly to the GitHub API. No servers, no setup, just drop it in your repo.
+
+**Setup (`dev/`):**
+
+1. Add `data-editable` attributes to your HTML.
+2. Generate a [GitHub Personal Access Token](https://github.com/settings/tokens/new?scopes=repo&description=Frankenstein%20CMS).
+3. Open `dev/index.html` and log in with your Token, Username, and Repo name.
+
+### 2. The `prod/` Version (For Agencies & Clients)
+
+Perfect if you build websites for clients. It uses a **Serverless Bouncer** (Cloudflare Worker) to completely hide your GitHub Token. Your clients log in with a clean, professional Email & Password screen.
+
+**Setup (`prod/`):**
+
+1. **Deploy the Bouncer:** Upload `prod/worker/worker.js` to a free Cloudflare Worker.
+2. **Secure the Vault:** In the Cloudflare Dashboard, set two Encrypted Variables: `CLIENT_EMAIL` and `CLIENT_PASSWORD` alongside your `GITHUB_TOKEN`.
+3. **Configure the UI:** Edit `prod/frankenstein.config.json` to point to your Bouncer URL, GitHub Owner, and Repo Name.
+4. **Client Handoff:** Your client visits `prod/index.html` and simply enters the Email and Password you assigned them. They never see your GitHub account details.
 
 ---
 
 ## 🏗️ Project Structure
 
-- **`index.html`**: The entire CMS interface. A sleek, dark dashboard using a Shadow DOM editor-host.
-- **`js/`**: The brain. Handles everything from AES encryption in `config.js` to the Quill integration in `editor.js`.
-- **`Igor`**: Your loyal assistant (`igor.js`) who tracks stats and judges your writing style.
+- **`dev/`**
+  - **`index.html`**: The direct-to-GitHub CMS interface.
+  - **`js/`**: Core logic including AES token encryption.
+- **`prod/`**
+  - **`index.html`**: The simplified Email/Password UI.
+  - **`worker/`**: The Cloudflare proxy script.
+  - **`js/`**: Core logic modified to route traffic through the Bouncer.
+- **`Igor`**: Your loyal assistant (`dev/js/igor.js`) who tracks stats and judges your writing style.
 
 ---
 
@@ -56,8 +76,9 @@ When you hit "Save", the editor's DOM is stripped of all `contenteditable` attri
 
 **Planning:**
 
-**IMPORTANT:** 
-- [ ] **Better Security:** Add better encryption and maybe an OAuth server option. Seed in local storage is still risky.  
+**IMPORTANT:**
+
+- [ ] **Better Security:** Add better encryption and maybe an OAuth server option. Seed in local storage is still risky.
 - [ ] **Git Time Travel (History & Revert):** The ability to retrieve old versions (commits) via the GitHub API. In case you accidentally demolish the place.
 - [ ] **Mobile Preview:** A button to narrow the editor to mobile size (375px), so you can see if the layout breaks on small screens.
 - [ ] **Giving Igor a brain:** Making Igor smarter than just counting words (e.g. broken link checker or SEO warnings).
@@ -65,6 +86,6 @@ When you hit "Save", the editor's DOM is stripped of all `contenteditable` attri
 
 **Later:**
 
-- [ ] **Phone Ready Editor:** An app for mobile devices to edit texts on the go. Maybe with just webview. 
+- [ ] **Phone Ready Editor:** An app for mobile devices to edit texts on the go. Maybe with just webview.
 - [ ] **Block Inserter Section:** A menu to inject ready-made HTML components (like Google Sites) directly into the `data-editable` container.
 - [ ] **Image Upload:** Support for uploading new images to the repo's `/img/` folder, so that the new sections don't remain naked.
