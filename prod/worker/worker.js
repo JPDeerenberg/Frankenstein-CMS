@@ -24,23 +24,40 @@ export default {
     const clientPassword = request.headers.get("Site-Password");
 
     // 3. Authenticate the Client
-    if (!env.CLIENT_EMAIL || !env.CLIENT_PASSWORD) {
-      return new Response(
-        "Bouncer misconfigured: Missing CLIENT_EMAIL or CLIENT_PASSWORD secret",
-        { status: 500, headers: corsHeaders() },
-      );
+    let githubToken = env.GITHUB_TOKEN;
+    let allowedPassword = env.CLIENT_PASSWORD;
+    let allowedEmail = env.CLIENT_EMAIL;
+
+    // Check Cloudflare KV for multi-tenant config if available
+    if (env.CONFIG_KV && clientEmail) {
+      const kvData = await env.CONFIG_KV.get(clientEmail);
+      if (kvData) {
+        try {
+          const config = JSON.parse(kvData);
+          allowedEmail = clientEmail;
+          allowedPassword = config.password || config.CLIENT_PASSWORD;
+          githubToken = config.github_token || config.GITHUB_TOKEN;
+        } catch (e) {
+          console.error("KV parsing error", e);
+        }
+      }
     }
-    if (!env.GITHUB_TOKEN) {
+
+    if (!allowedEmail || !allowedPassword) {
       return new Response(
-        "Bouncer misconfigured: Missing GITHUB_TOKEN secret",
+        "Bouncer misconfigured: Missing authentication credentials",
         { status: 500, headers: corsHeaders() },
       );
     }
 
-    if (
-      clientEmail !== env.CLIENT_EMAIL ||
-      clientPassword !== env.CLIENT_PASSWORD
-    ) {
+    if (!githubToken) {
+      return new Response("Bouncer misconfigured: Missing GITHUB_TOKEN", {
+        status: 500,
+        headers: corsHeaders(),
+      });
+    }
+
+    if (clientEmail !== allowedEmail || clientPassword !== allowedPassword) {
       // Artificial delay to deter brute-force
       await new Promise((r) => setTimeout(r, 2000));
       return new Response("Unauthorized: Incorrect Email or Password", {
@@ -56,7 +73,7 @@ export default {
 
     // Clone the original request to modify headers safely
     const proxyHeaders = new Headers(request.headers);
-    proxyHeaders.set("Authorization", `Bearer ${env.GITHUB_TOKEN}`);
+    proxyHeaders.set("Authorization", `Bearer ${githubToken}`);
     proxyHeaders.set("Accept", "application/vnd.github.v3+json");
     proxyHeaders.set("User-Agent", "Frankenstein-CMS-Bouncer");
 

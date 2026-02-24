@@ -44,6 +44,19 @@ function logout() {
   }
 }
 
+function applyExternalConfig(cfg) {
+  if (!cfg) return;
+  if (cfg.owner) document.getElementById("cfg-owner").value = cfg.owner;
+  if (cfg.repo) document.getElementById("cfg-repo").value = cfg.repo;
+  if (cfg.owner || cfg.repo) document.getElementById("cfg-token").focus();
+}
+
+window.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "frankenstein-config") {
+    applyExternalConfig(event.data.config);
+  }
+});
+
 window.onload = async () => {
   const hasData = localStorage.getItem("frankenstein_encrypted_cfg");
   if (hasData) {
@@ -51,6 +64,28 @@ window.onload = async () => {
     if (decrypted) {
       config = decrypted;
       showDashboard();
+      return;
+    }
+  }
+
+  // 1. Try URL parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlOwner = urlParams.get("owner");
+  const urlRepo = urlParams.get("repo");
+  if (urlOwner || urlRepo) {
+    applyExternalConfig({ owner: urlOwner, repo: urlRepo });
+  }
+
+  // 2. Attempt to load local dev config (only if URL params weren't complete)
+  if (!urlOwner || !urlRepo) {
+    try {
+      const res = await fetch("frankenstein.config.json");
+      if (res.ok) {
+        const devConfig = await res.json();
+        applyExternalConfig(devConfig);
+      }
+    } catch (e) {
+      // Ignore error if file doesn't exist or fetch fails
     }
   }
 };

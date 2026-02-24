@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Paneel - De Illusie</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+      }
+
+      #admin-frame {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: none;
+      }
+    </style>
+  </head>
+  <body>
+    <iframe
+      id="admin-frame"
+      src="https://jpdeerenberg.github.io/Frankenstein-CMS/dev/index.html"
+      title="Admin Paneel"
+      allowfullscreen
+    >
+    </iframe>
+
+    <script id="config-data" type="application/json">
+      {
+        "owner": "YOUR_GITHUB_USERNAME",
+        "repo": "YOUR_REPO_NAME"
+      }
+    </script>
+
+    <script>
+      const iframe = document.getElementById("admin-frame");
+      const configTag = document.getElementById("config-data");
+
+      iframe.onload = () => {
+        try {
+          const config = JSON.parse(configTag.textContent);
+          iframe.contentWindow.postMessage(
+            {
+              type: "frankenstein-config",
+              config: config,
+            },
+            "*",
+          );
+        } catch (e) {
+          console.error("Failed to send config to iframe", e);
+        }
+      };
+    </script>
+  </body>
+</html>

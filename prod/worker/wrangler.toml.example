@@ -2,14 +2,24 @@ name = "frankenstein-bouncer"
 main = "worker.js"
 compatibility_date = "2023-01-01"
 
-# The Bouncer needs two secrets to function securely.
-# Do NOT put them in this file. Run these commands instead:
+# --- Multi-tenant Setup (KV) ---
+# To support multiple clients in one worker, create a KV namespace:
+# npx wrangler kv:namespace create CONFIG_KV
 #
+# Then add the ID returned to the [[kv_namespaces]] block below.
+#
+# To add a client:
+# npx wrangler kv:key put --binding=CONFIG_KV "client@email.com" '{"password":"site-password", "github_token":"ghp_abc123"}'
+
+# [[kv_namespaces]]
+# binding = "CONFIG_KV"
+# id = "YOUR_KV_NAMESPACE_ID"
+
+# --- Single-tenant Setup (Secrets) ---
+# For a single site, you can just use environment variables:
+# npx wrangler secret put CLIENT_EMAIL
 # npx wrangler secret put CLIENT_PASSWORD
-# (e.g., the password you give your client: purple-banana-123)
-#
 # npx wrangler secret put GITHUB_TOKEN
-# (e.g., your fine-grained GitHub access token)
 
 [vars]
-# Any public variables you want to set
+# CLIENT_EMAIL = "optional-default@email.com"

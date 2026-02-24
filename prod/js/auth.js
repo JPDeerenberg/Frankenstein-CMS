@@ -7,7 +7,10 @@ async function saveConfigAndLogin() {
   // These are now populated by tryAutoFillConfig (hidden fields)
   const owner = document.getElementById("cfg-owner").value.trim();
   const repo = document.getElementById("cfg-repo").value.trim();
-  const bouncerUrl = document.getElementById("cfg-bouncer").value.trim();
+  let bouncerUrl = document.getElementById("cfg-bouncer").value.trim();
+  const backupBouncerUrl = document
+    .getElementById("cfg-bouncer-backup")
+    .value.trim();
 
   if (!email || !password) {
     return alert("Please enter your Client Email and Site Password.");
@@ -25,18 +28,45 @@ async function saveConfigAndLogin() {
   try {
     // We test the connection by fetching repo details via the proxy
     const testPath = `/repos/${owner}/${repo}`;
-    const res = await fetch(
-      `${bouncerUrl}?path=${encodeURIComponent(testPath)}`,
-      {
+
+    let res;
+    try {
+      res = await fetch(`${bouncerUrl}?path=${encodeURIComponent(testPath)}`, {
         method: "GET",
         headers: {
           "Site-Password": password,
           "Site-Email": email,
         },
-      },
-    );
+      });
+    } catch (e) {
+      console.warn("Primary bouncer failed, trying backup...", e);
+    }
 
-    if (!res.ok) {
+    // Fallback to backup if primary failed or returned error
+    if ((!res || !res.ok) && backupBouncerUrl) {
+      console.log("Switching to backup bouncer...");
+      loginMsg.innerText = "Primary failed. Trying backup...";
+      try {
+        res = await fetch(
+          `${backupBouncerUrl}?path=${encodeURIComponent(testPath)}`,
+          {
+            method: "GET",
+            headers: {
+              "Site-Password": password,
+              "Site-Email": email,
+            },
+          },
+        );
+        if (res.ok) {
+          bouncerUrl = backupBouncerUrl;
+          console.log("Fallback successful.");
+        }
+      } catch (e) {
+        console.error("Backup bouncer also failed.", e);
+      }
+    }
+
+    if (!res || !res.ok) {
       if (res.status === 401) {
         loginMsg.innerText = "❌ Incorrect password.";
         return;
@@ -95,6 +125,9 @@ async function tryAutoFillConfig() {
       if (data.repo) document.getElementById("cfg-repo").value = data.repo;
       if (data.bouncerUrl)
         document.getElementById("cfg-bouncer").value = data.bouncerUrl;
+      if (data.backupBouncerUrl)
+        document.getElementById("cfg-bouncer-backup").value =
+          data.backupBouncerUrl;
 
       // Hide all configuration fields if bouncer is fully configured
       if (data.owner && data.repo && data.bouncerUrl) {
