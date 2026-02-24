@@ -4,9 +4,7 @@ async function saveConfigAndLogin() {
   const token = document.getElementById("cfg-token").value.trim();
   const owner = document.getElementById("cfg-owner").value.trim();
   const repo = document.getElementById("cfg-repo").value.trim();
-  const password = document.getElementById("cfg-password").value.trim();
-  if (!token || !owner || !repo || !password)
-    return alert("Please fill in all fields.");
+  if (!token || !owner || !repo) return alert("Please fill in all fields.");
 
   const loginMsg = document.getElementById("login-msg");
   try {
@@ -30,7 +28,7 @@ async function saveConfigAndLogin() {
       return;
     }
     config = { token, owner, repo };
-    encryptConfig(config, password);
+    await encryptConfig(config);
     loginMsg.innerText = "Connected.";
     showDashboard();
   } catch (e) {
@@ -46,17 +44,13 @@ function logout() {
   }
 }
 
-window.onload = () => {
+window.onload = async () => {
   const hasData = localStorage.getItem("frankenstein_encrypted_cfg");
   if (hasData) {
-    const password = prompt("🔐 Session password:");
-    if (!password) return;
-    const decrypted = decryptConfig(password);
+    const decrypted = await decryptConfig();
     if (decrypted) {
       config = decrypted;
       showDashboard();
-    } else {
-      alert("❌ Wrong password.");
     }
   }
 };

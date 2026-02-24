@@ -78,7 +78,6 @@ Perfect if you build websites for clients. It uses a **Serverless Bouncer** (Clo
 
 **IMPORTANT:**
 
-- [ ] **Better Security:** Add better encryption and maybe an OAuth server option. Seed in local storage is still risky.
 - [ ] **Git Time Travel (History & Revert):** The ability to retrieve old versions (commits) via the GitHub API. In case you accidentally demolish the place.
 - [ ] **Mobile Preview:** A button to narrow the editor to mobile size (375px), so you can see if the layout breaks on small screens.
 - [ ] **Giving Igor a brain:** Making Igor smarter than just counting words (e.g. broken link checker or SEO warnings).
