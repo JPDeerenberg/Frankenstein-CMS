@@ -52,10 +52,14 @@
         <input type="password" id="cfg-password" placeholder="••••••••" />
 
         <!-- Hidden fields for the bouncer config -->
-        <input type="hidden" id="cfg-bouncer" />
+        <input
+          type="hidden"
+          id="cfg-bouncer"
+          value="https://frankenstein-bouncer.studiodeerenberg-549.workers.dev/"
+        />
         <input type="hidden" id="cfg-bouncer-backup" />
-        <input type="hidden" id="cfg-owner" />
-        <input type="hidden" id="cfg-repo" />
+        <input type="hidden" id="cfg-owner" value="JorisPD" />
+        <input type="hidden" id="cfg-repo" value="Wendy-s-website" />
 
         <button onclick="saveConfigAndLogin()">🔓 Connect</button>
         <div id="login-msg"></div>

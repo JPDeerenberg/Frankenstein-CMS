@@ -2,7 +2,7 @@
 /**
  * Frankenstein CMS - Backup Bouncer (Node.js)
  *
- * This script provides a fallback for the Cloudflare Worker bouncer.
+ * This script provides a fallback for the Frankenstein bouncer.
  * It can be run locally or on any server with Node.js.
  *
  * Usage:

@@ -6,7 +6,7 @@
 
 Frankenstein CMS is a **zero-install, single-folder content management system** specifically built for static HTML sites hosted on GitHub. No database, no Node.js overhead, no monthly subscriptions. Just one folder to dominate your repo via the official GitHub API.
 
-It uploads files directly to GitHub, making it work perfectly with **GitHub Pages, Cloudflare Pages, Netlify and other hosting services**.
+It uploads files directly to GitHub, making it work perfectly with **GitHub Pages, Netlify, and other hosting services**.
 
 ![Frankenstein Login Interface](/images/login.png)
 
@@ -54,23 +54,23 @@ Perfect for personal projects or developers who want to manage their own sites. 
 2. Generate a [GitHub Personal Access Token](https://github.com/settings/tokens/new?scopes=repo&description=Frankenstein%20CMS).
 3. Open `dev/index.html` (or your iframe/URL link) and enter your Token. The repo details will pre-fill if you used Method B or C.
 
-### 2. The `prod/` Version (For Agencies & Clients) BETA (not tested yet)
+### 2. The `prod/` Version (For Agencies & Clients)
 
-Perfect if you build websites for clients. It uses a **Serverless Bouncer** (Cloudflare Worker) to completely hide your GitHub Token.
+Perfect if you build websites for clients. It uses a **Serverless Bouncer** (Supabase or PHP) to completely hide your GitHub Token.
 
-**Now with Multi-tenant & Fallback support:**
+**Now with Multi-tenant support:**
 
-- **One Worker, Many Sites:** Use Cloudflare KV to store configs for multiple clients in a single worker, saving on Cloudflare plan costs.
+- **One Bouncer, Many Sites:** Use Supabase (Database) or a simple JSON file (PHP) to store configs for multiple clients in a single bouncer.
 - **Fail-safe Fallback:** If your primary bouncer goes down, the CMS can automatically switch to a `backupBouncerUrl`.
 - **Node.js Backup:** Includes a standalone Node.js script to run your own bouncer as a fallback.
 
 **Setup (`prod/`):**
 
-1. **Deploy the Bouncer:** Upload `prod/worker/worker.js` to a Cloudflare Worker.
-2. **Configure Multi-tenancy (Optional):** Follow instructions in `prod/worker/wrangler.toml.example` to set up a KV namespace for multiple sites.
-3. **Secure the Vault:** Set `CLIENT_EMAIL`, `CLIENT_PASSWORD`, and `GITHUB_TOKEN` as secrets (or in KV).
-4. **Configure the UI:** Edit `prod/frankenstein.config.json` to point to your `bouncerUrl` and optional `backupBouncerUrl`.
-5. **Client Handoff:** Your client visits `prod/index.html` and simply enters their Email and Password.
+1. **Deploy the Bouncer:** Use **Supabase** (Recommended) or **PHP**.
+   - **Supabase**: Run the SQL in `prod/worker/supabase-bouncer.sql` and deploy the Edge Function `prod/worker/supabase-bouncer.ts`.
+   - **PHP**: Upload `prod/worker/bouncer.php` and a `sites.json` file to your server.
+2. **Configure the UI:** Edit `prod/frankenstein.config.json` to point to your `bouncerUrl`.
+3. **Client Handoff:** Your client visits `prod/index.html` and simply enters their Email and Password.
 
 ---
 
@@ -81,7 +81,7 @@ Perfect if you build websites for clients. It uses a **Serverless Bouncer** (Clo
   - **`js/`**: Core logic including AES token encryption.
 - **`prod/`**
   - **`index.html`**: The simplified Email/Password UI.
-  - **`worker/`**: The Cloudflare proxy script.
+  - **`worker/`**: Proxy scripts for Supabase and PHP.
   - **`js/`**: Core logic modified to route traffic through the Bouncer.
 - **`Igor`**: Your loyal assistant (`dev/js/igor.js`) who tracks stats and judges your writing style.
 

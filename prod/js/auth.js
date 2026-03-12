@@ -1,12 +1,23 @@
 // Authentication and login management
 
+// Helper: read configuration from URL query parameters
+function getUrlConfig() {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    owner: params.get("owner") || "",
+    repo: params.get("repo") || "",
+    bouncer: params.get("bouncer") || "",
+    backupBouncer: params.get("backupBouncer") || "",
+  };
+}
+
 async function saveConfigAndLogin() {
   const email = document.getElementById("cfg-email").value.trim();
   const password = document.getElementById("cfg-password").value.trim();
 
   // These are now populated by tryAutoFillConfig (hidden fields)
-  const owner = document.getElementById("cfg-owner").value.trim();
-  const repo = document.getElementById("cfg-repo").value.trim();
+  let owner = document.getElementById("cfg-owner").value.trim();
+  let repo = document.getElementById("cfg-repo").value.trim();
   let bouncerUrl = document.getElementById("cfg-bouncer").value.trim();
   const backupBouncerUrl = document
     .getElementById("cfg-bouncer-backup")
@@ -17,9 +28,16 @@ async function saveConfigAndLogin() {
   }
 
   if (!owner || !repo || !bouncerUrl) {
-    return alert(
-      "System Error: The Bouncer is not properly configured in frankenstein.config.json.",
-    );
+    // Try to fill missing values from URL parameters as a fallback
+    const urlCfg = getUrlConfig();
+    if (!owner && urlCfg.owner) owner = urlCfg.owner;
+    if (!repo && urlCfg.repo) repo = urlCfg.repo;
+    if (!bouncerUrl && urlCfg.bouncer) bouncerUrl = urlCfg.bouncer;
+    if (!owner || !repo || !bouncerUrl) {
+      return alert(
+        "System Error: The Bouncer is not properly configured. Provide owner, repo, and bouncer URL via hidden fields or URL parameters.",
+      );
+    }
   }
 
   const loginMsg = document.getElementById("login-msg");
@@ -67,15 +85,19 @@ async function saveConfigAndLogin() {
     }
 
     if (!res || !res.ok) {
-      if (res.status === 401) {
+      if (res && res.status === 401) {
         loginMsg.innerText = "❌ Incorrect password.";
         return;
       }
-      let detail = ` (status ${res.status})`;
-      try {
-        const body = await res.json();
-        detail = body.message ? `: ${body.message}` : detail;
-      } catch (_) {}
+      let detail = res
+        ? ` (status ${res.status})`
+        : " (Network error or CORS issue)";
+      if (res) {
+        try {
+          const body = await res.json();
+          detail = body.message ? `: ${body.message}` : detail;
+        } catch (_) {}
+      }
       loginMsg.innerText = `Connection failed${detail}`;
       return;
     }
@@ -100,6 +122,19 @@ function logout() {
 
 window.onload = async () => {
   await tryAutoFillConfig();
+
+  // 1. Check URL parameters for configuration
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlConfig = {
+    owner: urlParams.get("owner"),
+    repo: urlParams.get("repo"),
+    bouncer: urlParams.get("bouncer"),
+    backupBouncer: urlParams.get("backupBouncer"),
+  };
+  if (urlConfig.owner || urlConfig.repo || urlConfig.bouncer) {
+    applyExternalConfig(urlConfig);
+  }
+
   const hasData = localStorage.getItem("frankenstein_encrypted_cfg");
   if (hasData) {
     const password = prompt("🔐 Session password:");
@@ -142,6 +177,32 @@ async function tryAutoFillConfig() {
   // We no longer auto-detect from GitHub Pages URL in Prod mode
   // because the Bouncer URL must be explicitly configured.
 }
+
+function applyExternalConfig(cfg) {
+  if (!cfg) return;
+  if (cfg.owner) document.getElementById("cfg-owner").value = cfg.owner;
+  if (cfg.repo) document.getElementById("cfg-repo").value = cfg.repo;
+  if (cfg.bouncerUrl || cfg.bouncer)
+    document.getElementById("cfg-bouncer").value =
+      cfg.bouncerUrl || cfg.bouncer;
+  if (cfg.backupBouncerUrl || cfg.backupBouncer)
+    document.getElementById("cfg-bouncer-backup").value =
+      cfg.backupBouncerUrl || cfg.backupBouncer;
+
+  // Logic to hide fields if required info is present
+  const owner = document.getElementById("cfg-owner").value;
+  const repo = document.getElementById("cfg-repo").value;
+  const bouncer = document.getElementById("cfg-bouncer").value;
+  if (owner && repo && bouncer) {
+    hideConfigFields();
+  }
+}
+
+window.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "frankenstein-config") {
+    applyExternalConfig(event.data.config);
+  }
+});
 
 function hideConfigFields() {
   // In Prod mode, the technical fields are already hidden HTML elements `<input type="hidden">`
