@@ -1,0 +1,3 @@
+## 2024-04-16 - GitHub API Asset Fetching Bottleneck
+**Learning:** The CMS architecture re-fetches inline assets (CSS, images) via the GitHub API (or bouncer) for every page load. Because it operates entirely client-side without a persistent backend, repeatedly loading files like `style.css` or common logos drastically increases page render latency and wastes API rate limits.
+**Action:** Implemented a session-level memory cache (`resourceCache`) to store fetched text/blobs for CSS and images. Next time similar client-side resource injection is used, always include an in-memory cache map for repeated paths.
