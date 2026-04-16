@@ -1,5 +1,7 @@
 // File and GitHub API operations
 
+const resourceCache = new Map();
+
 async function fetchFileList() {
   const listEl = document.getElementById("file-list");
 
@@ -206,20 +208,29 @@ async function loadFile(path, menuElement) {
         const href = l.getAttribute("href");
         if (!href || href.startsWith("http")) return; // Externe links negeren we nog even ivm CORS
 
-        // FIX: Gebruik hier de correcte currentDir
-        const r = await fetch(
-          `https://api.github.com/repos/${config.owner}/${
-            config.repo
-          }/contents/${resolvePath(currentDir, href)}`,
-          {
-            headers: {
-              Authorization: `token ${config.token}`,
-              Accept: "application/vnd.github.v3.raw",
-            },
-          }
-        );
-        if (!r.ok) return;
-        let css = await r.text();
+        const resolvedHref = resolvePath(currentDir, href);
+        let css;
+
+        if (resourceCache.has(resolvedHref)) {
+          css = resourceCache.get(resolvedHref);
+        } else {
+          // FIX: Gebruik hier de correcte currentDir
+          const r = await fetch(
+            `https://api.github.com/repos/${config.owner}/${
+              config.repo
+            }/contents/${resolvedHref}`,
+            {
+              headers: {
+                Authorization: `token ${config.token}`,
+                Accept: "application/vnd.github.v3.raw",
+              },
+            }
+          );
+          if (!r.ok) return;
+          css = await r.text();
+          resourceCache.set(resolvedHref, css);
+        }
+
         css = css.replace(/(^|[\s,}])body(?=[\s,{])/gi, "$1#cms-page-content");
         const s = document.createElement("style");
         s.textContent = css;
@@ -234,25 +245,33 @@ async function loadFile(path, menuElement) {
       const src = img.getAttribute("src");
       if (!src || src.startsWith("http")) return;
       img.setAttribute("data-original-src", src);
+
+      const resolvedSrc = resolvePath(currentDir, src);
       try {
-        // FIX: Ook hier currentDir gebruiken
-        const r = await fetch(
-          `https://api.github.com/repos/${config.owner}/${
-            config.repo
-          }/contents/${resolvePath(currentDir, src)}`,
-          {
-            headers: {
-              Authorization: `token ${config.token}`,
-              Accept: "application/vnd.github.v3.raw",
-            },
-          }
-        );
-        if (!r.ok) return;
-        const contentType =
-          r.headers.get("Content-Type") || "application/octet-stream";
-        const ab = await r.arrayBuffer();
-        const b64 = arrayBufferToBase64(ab);
-        img.src = `data:${contentType};base64,${b64}`;
+        if (resourceCache.has(resolvedSrc)) {
+          img.src = resourceCache.get(resolvedSrc);
+        } else {
+          // FIX: Ook hier currentDir gebruiken
+          const r = await fetch(
+            `https://api.github.com/repos/${config.owner}/${
+              config.repo
+            }/contents/${resolvedSrc}`,
+            {
+              headers: {
+                Authorization: `token ${config.token}`,
+                Accept: "application/vnd.github.v3.raw",
+              },
+            }
+          );
+          if (!r.ok) return;
+          const contentType =
+            r.headers.get("Content-Type") || "application/octet-stream";
+          const ab = await r.arrayBuffer();
+          const b64 = arrayBufferToBase64(ab);
+          const dataUrl = `data:${contentType};base64,${b64}`;
+          img.src = dataUrl;
+          resourceCache.set(resolvedSrc, dataUrl);
+        }
       } catch (e) {
         console.error("Image load failed", src, e);
       }
