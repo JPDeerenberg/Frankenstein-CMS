@@ -46,7 +46,6 @@ async function loadFile(path, menuElement) {
     menuElement.classList.add("active");
   }
   currentPath = path;
-  // FIX: Definieer currentDir zodat resolvePath weet waar we zijn
   const currentDir = path.includes("/")
     ? path.substring(0, path.lastIndexOf("/"))
     : "";
@@ -168,7 +167,6 @@ async function loadFile(path, menuElement) {
     `;
     shadow.appendChild(styleFix);
 
-    // FIX: Haal styles uit de HEAD en injecteer ze ook (voorheen genegeerd)
     doc.head.querySelectorAll("style").forEach((s) => {
       const newStyle = document.createElement("style");
       // Zorg dat ze alleen op de content wrappen en niet lekken
@@ -214,7 +212,6 @@ async function loadFile(path, menuElement) {
         if (resourceCache.has(resolvedHref)) {
           css = resourceCache.get(resolvedHref);
         } else {
-          // FIX: Gebruik hier de correcte currentDir
           const r = await fetch(
             `https://api.github.com/repos/${config.owner}/${
               config.repo
@@ -251,7 +248,6 @@ async function loadFile(path, menuElement) {
         if (resourceCache.has(resolvedSrc)) {
           img.src = resourceCache.get(resolvedSrc);
         } else {
-          // FIX: Ook hier currentDir gebruiken
           const r = await fetch(
             `https://api.github.com/repos/${config.owner}/${
               config.repo
