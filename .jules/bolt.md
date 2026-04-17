@@ -1,3 +1,6 @@
 ## 2024-04-16 - GitHub API Asset Fetching Bottleneck
 **Learning:** The CMS architecture re-fetches inline assets (CSS, images) via the GitHub API (or bouncer) for every page load. Because it operates entirely client-side without a persistent backend, repeatedly loading files like `style.css` or common logos drastically increases page render latency and wastes API rate limits.
 **Action:** Implemented a session-level memory cache (`resourceCache`) to store fetched text/blobs for CSS and images. Next time similar client-side resource injection is used, always include an in-memory cache map for repeated paths.
+## 2024-04-17 - Base64 Encoding/Decoding Bottleneck for Full Document Saves
+**Learning:** The CMS architecture serializes and base64-encodes the *entire* HTML document to push it to the GitHub API on save. Previously, `utf8ToBase64` and `base64ToUtf8` processed strings using character-by-character iterations (`String.fromCharCode` loop and `Uint8Array.from`), which caused massive main-thread blocking (~3s encoding, ~1s decoding for 5MB payloads).
+**Action:** Replaced character-by-character loops with chunked processing (`String.fromCharCode.apply` with chunk sizes) and pre-allocated typed arrays in `utils.js`. Always optimize large string manipulations in environments where whole-document serialization is the core operating mechanism.
