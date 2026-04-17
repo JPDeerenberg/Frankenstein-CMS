@@ -2,7 +2,11 @@
 
 function base64ToUtf8(b64) {
   try {
-    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
     const dec = new TextDecoder();
     return dec.decode(bytes);
   } catch (e) {
@@ -15,8 +19,10 @@ function utf8ToBase64(str) {
     const enc = new TextEncoder();
     const bytes = enc.encode(str);
     let binary = "";
-    for (let i = 0; i < bytes.byteLength; i++)
-      binary += String.fromCharCode(bytes[i]);
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+    }
     return btoa(binary);
   } catch (e) {
     return null;
