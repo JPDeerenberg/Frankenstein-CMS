@@ -21,7 +21,10 @@ function utf8ToBase64(str) {
     let binary = "";
     const chunkSize = 0x8000;
     for (let i = 0; i < bytes.length; i += chunkSize) {
-      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+      binary += String.fromCharCode.apply(
+        null,
+        bytes.subarray(i, i + chunkSize),
+      );
     }
     return btoa(binary);
   } catch (e) {
@@ -50,10 +53,12 @@ function arrayBufferToBase64(buffer) {
 function resolvePath(base, rel) {
   if (rel.startsWith("/")) return rel.substring(1);
   const stack = base ? base.split("/").filter((p) => p.length) : [];
-  rel.split("/").forEach((p) => {
+  const parts = rel.split("/");
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
     if (p == "..") {
       if (stack.length) stack.pop();
     } else if (p != "." && p != "") stack.push(p);
-  });
+  }
   return stack.join("/");
 }
