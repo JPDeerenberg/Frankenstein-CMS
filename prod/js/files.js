@@ -74,8 +74,6 @@ async function loadFile(path, menuElement) {
   try {
     let data;
     if (config.isDemo) {
-      console.log("Fetching local demo file...");
-
       try {
         const response = await fetch("demo_page.html");
 
