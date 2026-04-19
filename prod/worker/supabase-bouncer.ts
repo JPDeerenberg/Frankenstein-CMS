@@ -89,7 +89,9 @@ Deno.serve(async (req) => {
     
     // Add CORS to response
     const resHeaders = new Headers(response.headers);
-    Object.entries(corsHeaders).forEach(([k, v]) => resHeaders.set(k, v));
+    for (const k in corsHeaders) {
+      resHeaders.set(k, (corsHeaders as any)[k]);
+    }
 
     return new Response(response.body, {
       status: response.status,
