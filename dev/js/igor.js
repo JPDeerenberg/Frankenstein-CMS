@@ -46,29 +46,26 @@ window.Igor = {
     if (!q || !this.container) return;
 
     const text = q.getText();
-    const html = q.root.innerHTML;
     const cleanText = text.trim();
 
     const wordCount = cleanText.length > 0 ? cleanText.split(/\s+/).length : 0;
     const readTime = Math.ceil(wordCount / 200);
 
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = html;
-    const links = tempDiv.querySelectorAll("a");
+    const links = q.root.querySelectorAll("a");
     let badLinks = 0;
     links.forEach((a) => {
       const href = a.getAttribute("href");
       if (!href || href === "#" || href === "") badLinks++;
     });
 
-    const images = tempDiv.querySelectorAll("img");
+    const images = q.root.querySelectorAll("img");
     let missingAlt = 0;
     images.forEach((img) => {
       if (!img.alt || img.alt.trim() === "") missingAlt++;
     });
 
     let headerIssue = null;
-    let h1Count = tempDiv.querySelectorAll("h1").length;
+    let h1Count = q.root.querySelectorAll("h1").length;
 
     if (h1Count > 1) headerIssue = "Too many H1s";
     if (h1Count === 0 && wordCount > 50) headerIssue = "Missing H1";
@@ -83,50 +80,97 @@ window.Igor = {
   },
 
   render: function (stats) {
-    let statusHTML = "";
+    this.container.innerHTML = "";
 
-    statusHTML += `<div class="igor-item" title="Words">📝 <strong>${stats.words}</strong></div>`;
-    statusHTML += `<div class="igor-divider"></div>`;
+    const createItem = (content, title) => {
+      const div = document.createElement("div");
+      div.className = "igor-item";
+      if (title) div.title = title;
+      if (typeof content === "string") {
+        div.textContent = content;
+      } else {
+        div.appendChild(content);
+      }
+      return div;
+    };
 
-    statusHTML += `<div class="igor-item" title="Time">⏱️ <strong>${stats.time}m</strong></div>`;
-    statusHTML += `<div class="igor-divider"></div>`;
+    const createDivider = () => {
+      const div = document.createElement("div");
+      div.className = "igor-divider";
+      return div;
+    };
 
+    const createBadge = (text, type, tip) => {
+      const span = document.createElement("span");
+      span.className = `igor-badge igor-${type} igor-tooltip`;
+      span.setAttribute("data-tip", tip);
+      span.textContent = text;
+      return span;
+    };
+
+    // Words
+    const wordsStrong = document.createElement("strong");
+    wordsStrong.textContent = stats.words;
+    const wordsContent = document.createDocumentFragment();
+    wordsContent.appendChild(document.createTextNode("📝 "));
+    wordsContent.appendChild(wordsStrong);
+    this.container.appendChild(createItem(wordsContent, "Words"));
+    this.container.appendChild(createDivider());
+
+    // Time
+    const timeStrong = document.createElement("strong");
+    timeStrong.textContent = `${stats.time}m`;
+    const timeContent = document.createDocumentFragment();
+    timeContent.appendChild(document.createTextNode("⏱️ "));
+    timeContent.appendChild(timeStrong);
+    this.container.appendChild(createItem(timeContent, "Time"));
+    this.container.appendChild(createDivider());
+
+    // Issues
     let issues = [];
-
     if (stats.badLinks > 0) {
-      issues.push(
-        `<span class="igor-badge igor-err igor-tooltip" data-tip="${stats.badLinks} broken links">🔗 ${stats.badLinks}</span>`
-      );
+      issues.push(createBadge(`🔗 ${stats.badLinks}`, "err", `${stats.badLinks} broken links`));
     }
-
     if (stats.missingAlt > 0) {
-      issues.push(
-        `<span class="igor-badge igor-warn igor-tooltip" data-tip="${stats.missingAlt} images need alt text">🖼️ ${stats.missingAlt}</span>`
-      );
+      issues.push(createBadge(`🖼️ ${stats.missingAlt}`, "warn", `${stats.missingAlt} images need alt text`));
+    }
+    if (stats.headerIssue) {
+      issues.push(createBadge(`⚠️ ${stats.headerIssue}`, "warn", `Structure: ${stats.headerIssue}`));
     }
 
-    if (stats.headerIssue) {
-      issues.push(
-        `<span class="igor-badge igor-warn igor-tooltip" data-tip="Structure: ${stats.headerIssue}">⚠️ ${stats.headerIssue}</span>`
-      );
-    }
+    const issuesItem = document.createElement("div");
+    issuesItem.className = "igor-item";
+    issuesItem.style.display = "flex";
+    issuesItem.style.gap = "5px";
 
     if (issues.length === 0) {
-      statusHTML += `<div class="igor-item"><span class="igor-badge igor-ok">✨ Clean</span></div>`;
+      const cleanBadge = document.createElement("span");
+      cleanBadge.className = "igor-badge igor-ok";
+      cleanBadge.textContent = "✨ Clean";
+      issuesItem.appendChild(cleanBadge);
     } else {
-      statusHTML += `<div class="igor-item" style="display:flex; gap:5px;">${issues.join(
-        ""
-      )}</div>`;
+      issues.forEach(issue => issuesItem.appendChild(issue));
     }
+    this.container.appendChild(issuesItem);
 
+    // Comment
     let comment = "Ok.";
     if (stats.words === 0) comment = "Empty.";
     else if (issues.length > 2) comment = "Messy.";
     else if (stats.words > 500) comment = "Long.";
 
-    statusHTML += `<div class="igor-divider"></div>`;
-    statusHTML += `<div class="igor-item" style="font-style:italic; opacity:0.8; font-size:0.8em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100px;" title="${comment}">${comment}</div>`;
-
-    this.container.innerHTML = statusHTML;
+    this.container.appendChild(createDivider());
+    const commentItem = document.createElement("div");
+    commentItem.className = "igor-item";
+    commentItem.style.fontStyle = "italic";
+    commentItem.style.opacity = "0.8";
+    commentItem.style.fontSize = "0.8em";
+    commentItem.style.whiteSpace = "nowrap";
+    commentItem.style.overflow = "hidden";
+    commentItem.style.textOverflow = "ellipsis";
+    commentItem.style.maxWidth = "100px";
+    commentItem.title = comment;
+    commentItem.textContent = comment;
+    this.container.appendChild(commentItem);
   },
 };
