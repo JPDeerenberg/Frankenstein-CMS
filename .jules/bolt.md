@@ -7,3 +7,6 @@
 ## 2024-04-18 - Path Resolution Iteration Bottleneck
 **Learning:** The CMS uses `resolvePath` extensively to resolve relative paths for images and CSS assets whenever it fetches them from GitHub. This utility function was using `Array.prototype.forEach` to process the path components. For operations executed repeatedly and synchronously during the core rendering loop, creating closures within array iteration methods is an unnecessary overhead compared to traditional loops.
 **Action:** Replaced `Array.prototype.forEach` with a standard `for` loop in `resolvePath` in `dev/js/utils.js` and `prod/js/utils.js`. Prioritize traditional `for` loops in utility functions that are repeatedly invoked during document rendering.
+## 2024-05-19 - [Avoid DOM Serialization on Keystrokes]
+**Learning:** Serializing the entire editor content to an HTML string (`innerHTML`) and re-parsing it into a temporary DOM element on every single keystroke (`text-change` event) causes significant performance degradation and unnecessary memory allocation, especially for larger documents.
+**Action:** When analyzing editor content, query the Quill instance's live DOM root (`q.root.querySelectorAll`) directly instead of creating temporary elements and assigning `innerHTML`.

@@ -46,29 +46,30 @@ window.Igor = {
     if (!q || !this.container) return;
 
     const text = q.getText();
-    const html = q.root.innerHTML;
     const cleanText = text.trim();
 
     const wordCount = cleanText.length > 0 ? cleanText.split(/\s+/).length : 0;
     const readTime = Math.ceil(wordCount / 200);
 
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = html;
-    const links = tempDiv.querySelectorAll("a");
+    // ⚡ Bolt Performance Optimization:
+    // Querying the Quill instance's DOM root (q.root) directly is much faster than
+    // serializing the entire editor content to a string and re-parsing it via tempDiv.innerHTML.
+    // This avoids unnecessary memory allocation and CPU cycles on every keystroke.
+    const links = q.root.querySelectorAll("a");
     let badLinks = 0;
     links.forEach((a) => {
       const href = a.getAttribute("href");
       if (!href || href === "#" || href === "") badLinks++;
     });
 
-    const images = tempDiv.querySelectorAll("img");
+    const images = q.root.querySelectorAll("img");
     let missingAlt = 0;
     images.forEach((img) => {
       if (!img.alt || img.alt.trim() === "") missingAlt++;
     });
 
     let headerIssue = null;
-    let h1Count = tempDiv.querySelectorAll("h1").length;
+    let h1Count = q.root.querySelectorAll("h1").length;
 
     if (h1Count > 1) headerIssue = "Too many H1s";
     if (h1Count === 0 && wordCount > 50) headerIssue = "Missing H1";
