@@ -35,10 +35,14 @@ window.Igor = {
       document.head.appendChild(style);
     }
 
-    quillInstance.on("text-change", () => this.scan(quillInstance));
+    const debouncedScan = typeof debounce === "function"
+      ? debounce(() => this.scan(quillInstance), 300)
+      : () => this.scan(quillInstance);
+
+    quillInstance.on("text-change", debouncedScan);
 
     quillInstance.on("selection-change", (range) => {
-      if (range) this.scan(quillInstance);
+      if (range) debouncedScan();
     });
   },
 
