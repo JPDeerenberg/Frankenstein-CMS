@@ -3,6 +3,7 @@
 let isDirty = false;
 
 function setUnsaved() {
+  if (isDirty) return;
   isDirty = true;
   const el = document.getElementById("save-status");
   if (el) {

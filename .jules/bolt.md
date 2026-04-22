@@ -10,3 +10,6 @@
 ## 2024-05-19 - [Avoid DOM Serialization on Keystrokes]
 **Learning:** Serializing the entire editor content to an HTML string (`innerHTML`) and re-parsing it into a temporary DOM element on every single keystroke (`text-change` event) causes significant performance degradation and unnecessary memory allocation, especially for larger documents.
 **Action:** When analyzing editor content, query the Quill instance's live DOM root (`q.root.querySelectorAll`) directly instead of creating temporary elements and assigning `innerHTML`.
+## 2024-05-20 - Keystroke Event Handlers Blocking Main Thread
+**Learning:** Functions bound to high-frequency events like `text-change` (keystrokes) that perform synchronous DOM queries or string parsing (like `Igor.scan` or redundant UI updates in `setUnsaved`) can cause severe main-thread blocking, making the editor feel sluggish during rapid typing.
+**Action:** Always debounce expensive operations (like full-document scanning or UI rebuilding) bound to keystroke events, and add early returns to state-change functions (like `setUnsaved`) to prevent redundant DOM manipulations once the state has already been reached.
