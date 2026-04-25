@@ -13,3 +13,6 @@
 ## 2024-05-20 - Keystroke Event Handlers Blocking Main Thread
 **Learning:** Functions bound to high-frequency events like `text-change` (keystrokes) that perform synchronous DOM queries or string parsing (like `Igor.scan` or redundant UI updates in `setUnsaved`) can cause severe main-thread blocking, making the editor feel sluggish during rapid typing.
 **Action:** Always debounce expensive operations (like full-document scanning or UI rebuilding) bound to keystroke events, and add early returns to state-change functions (like `setUnsaved`) to prevent redundant DOM manipulations once the state has already been reached.
+## 2024-05-21 - Parallel Asset Fetching Cache Invalidation
+**Learning:** Storing the resolved result of a fetch operation in an in-memory map (like `resourceCache`) is insufficient when multiple asynchronous requests for the same asset are initiated simultaneously. Because the first request hasn't populated the cache yet, subsequent concurrent requests for the identical resource will still trigger redundant network calls, wasting API rate limits and rendering time.
+**Action:** Always store the *Promise* of the fetch operation in the cache immediately, rather than waiting for the result. This ensures all concurrent requests for the same asset await the exact same promise and network call.
