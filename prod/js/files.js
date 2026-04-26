@@ -210,21 +210,20 @@ async function loadFile(path, menuElement) {
         const resolvedHref = resolvePath(currentDir, href);
         let css;
 
-        if (resourceCache.has(resolvedHref)) {
-          css = resourceCache.get(resolvedHref);
-        } else {
-          const r = await githubFetch(
+        if (!resourceCache.has(resolvedHref)) {
+          const fetchPromise = githubFetch(
             `/repos/${config.owner}/${config.repo}/contents/${resolvedHref}`,
             {
               headers: {
                 Accept: "application/vnd.github.v3.raw",
               },
             },
-          );
-          if (!r.ok) return;
-          css = await r.text();
-          resourceCache.set(resolvedHref, css);
+          ).then(r => r.ok ? r.text() : null);
+          resourceCache.set(resolvedHref, fetchPromise);
         }
+
+        css = await resourceCache.get(resolvedHref);
+        if (!css) return;
 
         css = css.replace(/(^|[\s,}])body(?=[\s,{])/gi, "$1#cms-page-content");
         const s = document.createElement("style");
@@ -245,25 +244,28 @@ async function loadFile(path, menuElement) {
 
       const resolvedSrc = resolvePath(currentDir, src);
       try {
-        if (resourceCache.has(resolvedSrc)) {
-          img.src = resourceCache.get(resolvedSrc);
-        } else {
-          const r = await githubFetch(
+        if (!resourceCache.has(resolvedSrc)) {
+          const fetchPromise = githubFetch(
             `/repos/${config.owner}/${config.repo}/contents/${resolvedSrc}`,
             {
               headers: {
                 Accept: "application/vnd.github.v3.raw",
               },
             },
-          );
-          if (!r.ok) return;
-          const contentType =
-            r.headers.get("Content-Type") || "application/octet-stream";
-          const ab = await r.arrayBuffer();
-          const b64 = arrayBufferToBase64(ab);
-          const dataUrl = `data:${contentType};base64,${b64}`;
+          ).then(async r => {
+            if (!r.ok) return null;
+            const contentType =
+              r.headers.get("Content-Type") || "application/octet-stream";
+            const ab = await r.arrayBuffer();
+            const b64 = arrayBufferToBase64(ab);
+            return `data:${contentType};base64,${b64}`;
+          });
+          resourceCache.set(resolvedSrc, fetchPromise);
+        }
+
+        const dataUrl = await resourceCache.get(resolvedSrc);
+        if (dataUrl) {
           img.src = dataUrl;
-          resourceCache.set(resolvedSrc, dataUrl);
         }
       } catch (e) {
         console.error("Image load failed", src, e);
