@@ -209,37 +209,32 @@ async function loadFile(path, menuElement) {
         const resolvedHref = resolvePath(currentDir, href);
         let css;
 
-        // ⚡ Bolt: Cache the fetch Promise instead of the result to deduplicate simultaneous requests
-        // Expected impact: Prevents redundant API calls when multiple links request the same CSS file before the first fetch completes.
-        if (resourceCache.has(resolvedHref)) {
-          try {
-            css = await resourceCache.get(resolvedHref);
-          } catch(e) {
-            return;
-          }
-        } else {
-          const fetchPromise = (async () => {
-            const r = await fetch(
-              `https://api.github.com/repos/${config.owner}/${
-                config.repo
-              }/contents/${resolvedHref}`,
-              {
-                headers: {
-                  Authorization: `token ${config.token}`,
-                  Accept: "application/vnd.github.v3.raw",
-                },
-              }
-            );
+        if (!resourceCache.has(resolvedHref)) {
+          // FIX: Gebruik hier de correcte currentDir
+          const fetchPromise = fetch(
+            `https://api.github.com/repos/${config.owner}/${
+              config.repo
+            }/contents/${resolvedHref}`,
+            {
+              headers: {
+                Authorization: `token ${config.token}`,
+                Accept: "application/vnd.github.v3.raw",
+              },
+            }
+          ).then(r => {
             if (!r.ok) throw new Error("CSS fetch failed");
-            return await r.text();
-          })();
-          resourceCache.set(resolvedHref, fetchPromise);
-          try {
-            css = await fetchPromise;
-          } catch(e) {
+            return r.text();
+          }).catch(e => {
             resourceCache.delete(resolvedHref);
-            return;
-          }
+            throw e;
+          });
+          resourceCache.set(resolvedHref, fetchPromise);
+        }
+
+        try {
+          css = await resourceCache.get(resolvedHref);
+        } catch (e) {
+          return;
         }
 
         css = css.replace(/(^|[\s,}])body(?=[\s,{])/gi, "$1#cms-page-content");
@@ -259,38 +254,33 @@ async function loadFile(path, menuElement) {
 
       const resolvedSrc = resolvePath(currentDir, src);
       try {
-        // ⚡ Bolt: Cache the fetch Promise instead of the result to deduplicate simultaneous requests
-        // Expected impact: Prevents redundant API calls when multiple identical images are rendered on the page before the first fetch completes.
-        if (resourceCache.has(resolvedSrc)) {
-          img.src = await resourceCache.get(resolvedSrc);
-        } else {
-          const fetchPromise = (async () => {
-            const r = await fetch(
-              `https://api.github.com/repos/${config.owner}/${
-                config.repo
-              }/contents/${resolvedSrc}`,
-              {
-                headers: {
-                  Authorization: `token ${config.token}`,
-                  Accept: "application/vnd.github.v3.raw",
-                },
-              }
-            );
+        if (!resourceCache.has(resolvedSrc)) {
+          // FIX: Ook hier currentDir gebruiken
+          const fetchPromise = fetch(
+            `https://api.github.com/repos/${config.owner}/${
+              config.repo
+            }/contents/${resolvedSrc}`,
+            {
+              headers: {
+                Authorization: `token ${config.token}`,
+                Accept: "application/vnd.github.v3.raw",
+              },
+            }
+          ).then(async r => {
             if (!r.ok) throw new Error("Image fetch failed");
             const contentType =
               r.headers.get("Content-Type") || "application/octet-stream";
             const ab = await r.arrayBuffer();
             const b64 = arrayBufferToBase64(ab);
             return `data:${contentType};base64,${b64}`;
-          })();
-          resourceCache.set(resolvedSrc, fetchPromise);
-          try {
-            img.src = await fetchPromise;
-          } catch(e) {
+          }).catch(e => {
             resourceCache.delete(resolvedSrc);
             throw e;
-          }
+          });
+          resourceCache.set(resolvedSrc, fetchPromise);
         }
+
+        img.src = await resourceCache.get(resolvedSrc);
       } catch (e) {
         console.error("Image load failed", src, e);
       }
