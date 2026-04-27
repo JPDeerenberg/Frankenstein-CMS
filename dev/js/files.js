@@ -272,6 +272,8 @@ async function loadFile(path, menuElement) {
         if (dataUrl) {
           img.src = dataUrl;
         }
+
+        img.src = await resourceCache.get(resolvedSrc);
       } catch (e) {
         console.error("Image load failed", src, e);
       }
