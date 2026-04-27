@@ -211,6 +211,7 @@ async function loadFile(path, menuElement) {
         let css;
 
         if (!resourceCache.has(resolvedHref)) {
+          // Store the promise in the cache immediately to deduplicate parallel requests
           const fetchPromise = githubFetch(
             `/repos/${config.owner}/${config.repo}/contents/${resolvedHref}`,
             {
@@ -218,9 +219,9 @@ async function loadFile(path, menuElement) {
                 Accept: "application/vnd.github.v3.raw",
               },
             },
-          ).then(r => {
-            if (!r.ok) throw new Error("CSS fetch failed");
-            return r.text();
+          ).then(async (r) => {
+            if (!r.ok) throw new Error("Network response was not ok");
+            return await r.text();
           }).catch(e => {
             resourceCache.delete(resolvedHref);
             throw e;
@@ -254,6 +255,7 @@ async function loadFile(path, menuElement) {
       const resolvedSrc = resolvePath(currentDir, src);
       try {
         if (!resourceCache.has(resolvedSrc)) {
+          // Store the promise in the cache immediately to deduplicate parallel requests
           const fetchPromise = githubFetch(
             `/repos/${config.owner}/${config.repo}/contents/${resolvedSrc}`,
             {
@@ -261,8 +263,8 @@ async function loadFile(path, menuElement) {
                 Accept: "application/vnd.github.v3.raw",
               },
             },
-          ).then(async r => {
-            if (!r.ok) throw new Error("Image fetch failed");
+          ).then(async (r) => {
+            if (!r.ok) throw new Error("Network response was not ok");
             const contentType =
               r.headers.get("Content-Type") || "application/octet-stream";
             const ab = await r.arrayBuffer();
