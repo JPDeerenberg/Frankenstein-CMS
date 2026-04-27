@@ -246,6 +246,9 @@ async function loadFile(path, menuElement) {
           }
         }
 
+        css = await resourceCache.get(resolvedHref);
+        if (!css) return;
+
         css = css.replace(/(^|[\s,}])body(?=[\s,{])/gi, "$1#cms-page-content");
         const s = document.createElement("style");
         s.textContent = css;
@@ -304,6 +307,8 @@ async function loadFile(path, menuElement) {
             return;
           }
         }
+
+        img.src = await resourceCache.get(resolvedSrc);
       } catch (e) {
         console.error("Image load failed", src, e);
       }
