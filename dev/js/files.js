@@ -210,23 +210,40 @@ async function loadFile(path, menuElement) {
         let css;
 
         if (resourceCache.has(resolvedHref)) {
-          css = resourceCache.get(resolvedHref);
+          css = await resourceCache.get(resolvedHref);
+          if (!css) return;
         } else {
           // FIX: Gebruik hier de correcte currentDir
-          const r = await fetch(
-            `https://api.github.com/repos/${config.owner}/${
-              config.repo
-            }/contents/${resolvedHref}`,
-            {
-              headers: {
-                Authorization: `token ${config.token}`,
-                Accept: "application/vnd.github.v3.raw",
-              },
+          const fetchPromise = (async () => {
+            try {
+              const r = await fetch(
+                `https://api.github.com/repos/${config.owner}/${
+                  config.repo
+                }/contents/${resolvedHref}`,
+                {
+                  headers: {
+                    Authorization: `token ${config.token}`,
+                    Accept: "application/vnd.github.v3.raw",
+                  },
+                }
+              );
+              if (!r.ok) return null;
+              return await r.text();
+            } catch (e) {
+              resourceCache.delete(resolvedHref);
+              throw e;
             }
-          );
-          if (!r.ok) return;
-          css = await r.text();
-          resourceCache.set(resolvedHref, css);
+          })();
+          resourceCache.set(resolvedHref, fetchPromise);
+          try {
+            css = await fetchPromise;
+            if (css === null) {
+              resourceCache.delete(resolvedHref);
+              return;
+            }
+          } catch (e) {
+            return; // original logic ignored errors
+          }
         }
 
         css = css.replace(/(^|[\s,}])body(?=[\s,{])/gi, "$1#cms-page-content");
@@ -247,28 +264,45 @@ async function loadFile(path, menuElement) {
       const resolvedSrc = resolvePath(currentDir, src);
       try {
         if (resourceCache.has(resolvedSrc)) {
-          img.src = resourceCache.get(resolvedSrc);
+          const cachedSrc = await resourceCache.get(resolvedSrc);
+          if (cachedSrc) img.src = cachedSrc;
         } else {
           // FIX: Ook hier currentDir gebruiken
-          const r = await fetch(
-            `https://api.github.com/repos/${config.owner}/${
-              config.repo
-            }/contents/${resolvedSrc}`,
-            {
-              headers: {
-                Authorization: `token ${config.token}`,
-                Accept: "application/vnd.github.v3.raw",
-              },
+          const fetchPromise = (async () => {
+            try {
+              const r = await fetch(
+                `https://api.github.com/repos/${config.owner}/${
+                  config.repo
+                }/contents/${resolvedSrc}`,
+                {
+                  headers: {
+                    Authorization: `token ${config.token}`,
+                    Accept: "application/vnd.github.v3.raw",
+                  },
+                }
+              );
+              if (!r.ok) return null;
+              const contentType =
+                r.headers.get("Content-Type") || "application/octet-stream";
+              const ab = await r.arrayBuffer();
+              const b64 = arrayBufferToBase64(ab);
+              return `data:${contentType};base64,${b64}`;
+            } catch (e) {
+              resourceCache.delete(resolvedSrc);
+              throw e;
             }
-          );
-          if (!r.ok) return;
-          const contentType =
-            r.headers.get("Content-Type") || "application/octet-stream";
-          const ab = await r.arrayBuffer();
-          const b64 = arrayBufferToBase64(ab);
-          const dataUrl = `data:${contentType};base64,${b64}`;
-          img.src = dataUrl;
-          resourceCache.set(resolvedSrc, dataUrl);
+          })();
+          resourceCache.set(resolvedSrc, fetchPromise);
+          try {
+            const newSrc = await fetchPromise;
+            if (newSrc === null) {
+              resourceCache.delete(resolvedSrc);
+              return;
+            }
+            img.src = newSrc;
+          } catch(e) {
+            return;
+          }
         }
       } catch (e) {
         console.error("Image load failed", src, e);
