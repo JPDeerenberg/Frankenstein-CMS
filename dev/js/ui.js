@@ -3,7 +3,7 @@
 let isDirty = false;
 
 function setUnsaved() {
-  if (isDirty) return; // Optimization: early return if already unsaved to prevent redundant DOM updates
+  if (isDirty) return; // Optimization: skip redundant DOM updates
   isDirty = true;
   const el = document.getElementById("save-status");
   if (el) {
@@ -13,7 +13,7 @@ function setUnsaved() {
 }
 
 function setSaved() {
-  if (!isDirty) return; // Optimization: early return if already saved to prevent redundant DOM updates
+  if (!isDirty) return; // Optimization: skip redundant DOM updates
   isDirty = false;
   const el = document.getElementById("save-status");
   if (el) {
