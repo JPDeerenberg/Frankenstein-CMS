@@ -210,7 +210,7 @@ async function loadFile(path, menuElement) {
         let css;
 
         if (!resourceCache.has(resolvedHref)) {
-          // Store the promise in the cache immediately to deduplicate parallel requests
+          // FIX: Gebruik hier de correcte currentDir
           const fetchPromise = fetch(
             `https://api.github.com/repos/${config.owner}/${
               config.repo
@@ -221,21 +221,12 @@ async function loadFile(path, menuElement) {
                 Accept: "application/vnd.github.v3.raw",
               },
             }
-          ).then(async (r) => {
-            if (!r.ok) throw new Error("Network response was not ok");
-            return await r.text();
-          }).catch(e => {
-            resourceCache.delete(resolvedHref);
-            throw e;
-          });
+          ).then(r => r.ok ? r.text() : null);
           resourceCache.set(resolvedHref, fetchPromise);
         }
 
-        try {
-          css = await resourceCache.get(resolvedHref);
-        } catch (e) {
-          return;
-        }
+        css = await resourceCache.get(resolvedHref);
+        if (!css) return;
 
         css = css.replace(/(^|[\s,}])body(?=[\s,{])/gi, "$1#cms-page-content");
         const s = document.createElement("style");
@@ -255,7 +246,7 @@ async function loadFile(path, menuElement) {
       const resolvedSrc = resolvePath(currentDir, src);
       try {
         if (!resourceCache.has(resolvedSrc)) {
-          // Store the promise in the cache immediately to deduplicate parallel requests
+          // FIX: Ook hier currentDir gebruiken
           const fetchPromise = fetch(
             `https://api.github.com/repos/${config.owner}/${
               config.repo
@@ -266,18 +257,20 @@ async function loadFile(path, menuElement) {
                 Accept: "application/vnd.github.v3.raw",
               },
             }
-          ).then(async (r) => {
-            if (!r.ok) throw new Error("Network response was not ok");
+          ).then(async r => {
+            if (!r.ok) return null;
             const contentType =
               r.headers.get("Content-Type") || "application/octet-stream";
             const ab = await r.arrayBuffer();
             const b64 = arrayBufferToBase64(ab);
             return `data:${contentType};base64,${b64}`;
-          }).catch(e => {
-            resourceCache.delete(resolvedSrc);
-            throw e;
           });
           resourceCache.set(resolvedSrc, fetchPromise);
+        }
+
+        const dataUrl = await resourceCache.get(resolvedSrc);
+        if (dataUrl) {
+          img.src = dataUrl;
         }
 
         img.src = await resourceCache.get(resolvedSrc);
