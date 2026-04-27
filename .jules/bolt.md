@@ -13,6 +13,6 @@
 ## 2024-05-20 - Keystroke Event Handlers Blocking Main Thread
 **Learning:** Functions bound to high-frequency events like `text-change` (keystrokes) that perform synchronous DOM queries or string parsing (like `Igor.scan` or redundant UI updates in `setUnsaved`) can cause severe main-thread blocking, making the editor feel sluggish during rapid typing.
 **Action:** Always debounce expensive operations (like full-document scanning or UI rebuilding) bound to keystroke events, and add early returns to state-change functions (like `setUnsaved`) to prevent redundant DOM manipulations once the state has already been reached.
-## 2024-05-21 - Concurrent Asset Fetching Deduplication
-**Learning:** The `resourceCache` previously stored the *resolved* asset data (CSS text or Base64 Image URLs) after the network request completed. During page load, multiple identical inline assets (e.g., repeating logos) would trigger concurrent network requests before the first one could populate the cache.
-**Action:** When implementing in-memory caching for asynchronous operations (like `resourceCache` for fetching assets), always store the Promise immediately rather than the resolved result. This ensures concurrent requests correctly deduplicate and await the exact same network call.
+## 2024-05-21 - Caching Promises vs Results for Network Requests
+**Learning:** The CMS architecture re-fetches inline assets (CSS, images) via the GitHub API. Storing the resolved result in a cache (`resourceCache`) still allows duplicate concurrent network requests to be sent if multiple identical assets are requested simultaneously before the first one completes. Also, throwing errors on failure can break control flow when the existing logic silently aborted.
+**Action:** Always store the Promise immediately in the cache rather than waiting for the resolved result, and handle failed requests gracefully (e.g., returning null) rather than throwing errors.

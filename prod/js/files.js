@@ -210,16 +210,37 @@ async function loadFile(path, menuElement) {
         const resolvedHref = resolvePath(currentDir, href);
         let css;
 
-        if (!resourceCache.has(resolvedHref)) {
-          const fetchPromise = githubFetch(
-            `/repos/${config.owner}/${config.repo}/contents/${resolvedHref}`,
-            {
-              headers: {
-                Accept: "application/vnd.github.v3.raw",
-              },
-            },
-          ).then(r => r.ok ? r.text() : null);
+        if (resourceCache.has(resolvedHref)) {
+          css = await resourceCache.get(resolvedHref);
+          if (!css) return;
+        } else {
+          const fetchPromise = (async () => {
+            try {
+              const r = await githubFetch(
+                `/repos/${config.owner}/${config.repo}/contents/${resolvedHref}`,
+                {
+                  headers: {
+                    Accept: "application/vnd.github.v3.raw",
+                  },
+                },
+              );
+              if (!r.ok) return null;
+              return await r.text();
+            } catch (e) {
+              resourceCache.delete(resolvedHref);
+              throw e;
+            }
+          })();
           resourceCache.set(resolvedHref, fetchPromise);
+          try {
+            css = await fetchPromise;
+            if (css === null) {
+              resourceCache.delete(resolvedHref);
+              return;
+            }
+          } catch(e) {
+            return; // ignore as before
+          }
         }
 
         css = await resourceCache.get(resolvedHref);
@@ -244,28 +265,42 @@ async function loadFile(path, menuElement) {
 
       const resolvedSrc = resolvePath(currentDir, src);
       try {
-        if (!resourceCache.has(resolvedSrc)) {
-          const fetchPromise = githubFetch(
-            `/repos/${config.owner}/${config.repo}/contents/${resolvedSrc}`,
-            {
-              headers: {
-                Accept: "application/vnd.github.v3.raw",
-              },
-            },
-          ).then(async r => {
-            if (!r.ok) return null;
-            const contentType =
-              r.headers.get("Content-Type") || "application/octet-stream";
-            const ab = await r.arrayBuffer();
-            const b64 = arrayBufferToBase64(ab);
-            return `data:${contentType};base64,${b64}`;
-          });
+        if (resourceCache.has(resolvedSrc)) {
+          const cachedSrc = await resourceCache.get(resolvedSrc);
+          if (cachedSrc) img.src = cachedSrc;
+        } else {
+          const fetchPromise = (async () => {
+            try {
+              const r = await githubFetch(
+                `/repos/${config.owner}/${config.repo}/contents/${resolvedSrc}`,
+                {
+                  headers: {
+                    Accept: "application/vnd.github.v3.raw",
+                  },
+                },
+              );
+              if (!r.ok) return null;
+              const contentType =
+                r.headers.get("Content-Type") || "application/octet-stream";
+              const ab = await r.arrayBuffer();
+              const b64 = arrayBufferToBase64(ab);
+              return `data:${contentType};base64,${b64}`;
+            } catch (e) {
+              resourceCache.delete(resolvedSrc);
+              throw e;
+            }
+          })();
           resourceCache.set(resolvedSrc, fetchPromise);
-        }
-
-        const dataUrl = await resourceCache.get(resolvedSrc);
-        if (dataUrl) {
-          img.src = dataUrl;
+          try {
+            const newSrc = await fetchPromise;
+            if (newSrc === null) {
+              resourceCache.delete(resolvedSrc);
+              return;
+            }
+            img.src = newSrc;
+          } catch(e) {
+            return; // ignore as before
+          }
         }
 
         img.src = await resourceCache.get(resolvedSrc);
