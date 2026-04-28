@@ -52,7 +52,22 @@ window.Igor = {
     const text = q.getText();
     const cleanText = text.trim();
 
-    const wordCount = cleanText.length > 0 ? cleanText.split(/\s+/).length : 0;
+    // ⚡ Bolt Optimization: Calculate word count without creating an array
+    let wordCount = 0;
+    let inWord = false;
+    for (let i = 0; i < cleanText.length; i++) {
+      const code = cleanText.charCodeAt(i);
+      // 32: Space, 9: Tab, 10: Newline, 13: Carriage return, 160: Non-breaking space
+      if (code === 32 || code === 9 || code === 10 || code === 13 || code === 160) {
+        inWord = false;
+      } else {
+        if (!inWord) {
+          wordCount++;
+          inWord = true;
+        }
+      }
+    }
+
     const readTime = Math.ceil(wordCount / 200);
 
     const links = q.root.querySelectorAll("a");
