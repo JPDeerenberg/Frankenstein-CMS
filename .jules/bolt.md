@@ -16,3 +16,6 @@
 ## 2024-05-21 - Caching Promises vs Results for Network Requests
 **Learning:** The CMS architecture re-fetches inline assets (CSS, images) via the GitHub API. Storing the resolved result in a cache (`resourceCache`) still allows duplicate concurrent network requests to be sent if multiple identical assets are requested simultaneously before the first one completes. Also, throwing errors on failure can break control flow when the existing logic silently aborted.
 **Action:** Always store the Promise immediately in the cache rather than waiting for the resolved result, and handle failed requests gracefully (e.g., returning null) rather than throwing errors.
+## 2024-05-22 - Regex split in text scanning functions
+**Learning:** Using regex-based string splitting (`cleanText.split(/\s+/)`) for calculating word counts creates an O(N) space array allocation which triggers heavy garbage collection during frequent text scans.
+**Action:** Use an O(1) space `charCodeAt` loop for finding word boundaries instead of string manipulation functions whenever parsing large text documents on frequent intervals.

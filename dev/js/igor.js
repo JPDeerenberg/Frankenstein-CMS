@@ -52,7 +52,21 @@ window.Igor = {
     const text = q.getText();
     const cleanText = text.trim();
 
-    const wordCount = cleanText.length > 0 ? cleanText.split(/\s+/).length : 0;
+    let wordCount = 0;
+    if (cleanText.length > 0) {
+      let inWord = false;
+      for (let i = 0; i < cleanText.length; i++) {
+        const code = cleanText.charCodeAt(i);
+        // Match spaces, tabs, and newlines (ASCII <= 32)
+        if (code <= 32 && (code === 32 || code === 9 || code === 10 || code === 13) || code === 160) {
+          inWord = false;
+        } else if (!inWord) {
+          inWord = true;
+          wordCount++;
+        }
+      }
+    }
+
     const readTime = Math.ceil(wordCount / 200);
 
     const links = q.root.querySelectorAll("a");
