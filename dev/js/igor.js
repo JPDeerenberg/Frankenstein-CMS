@@ -52,18 +52,17 @@ window.Igor = {
     const text = q.getText();
     const cleanText = text.trim();
 
-    // ⚡ Bolt Optimization: Calculate word count without creating an array
     let wordCount = 0;
-    let inWord = false;
-    for (let i = 0; i < cleanText.length; i++) {
-      const code = cleanText.charCodeAt(i);
-      // 32: Space, 9: Tab, 10: Newline, 13: Carriage return, 160: Non-breaking space
-      if (code === 32 || code === 9 || code === 10 || code === 13 || code === 160) {
-        inWord = false;
-      } else {
-        if (!inWord) {
-          wordCount++;
+    if (cleanText.length > 0) {
+      let inWord = false;
+      for (let i = 0; i < cleanText.length; i++) {
+        const code = cleanText.charCodeAt(i);
+        // Match spaces, tabs, and newlines (ASCII <= 32)
+        if (code <= 32 && (code === 32 || code === 9 || code === 10 || code === 13) || code === 160) {
+          inWord = false;
+        } else if (!inWord) {
           inWord = true;
+          wordCount++;
         }
       }
     }
