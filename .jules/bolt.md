@@ -19,3 +19,7 @@
 ## 2024-05-22 - Regex split in text scanning functions
 **Learning:** Using regex-based string splitting (`cleanText.split(/\s+/)`) for calculating word counts creates an O(N) space array allocation which triggers heavy garbage collection during frequent text scans.
 **Action:** Use an O(1) space `charCodeAt` loop for finding word boundaries instead of string manipulation functions whenever parsing large text documents on frequent intervals.
+
+## 2026-05-01 - querySelectorAll vs getElementsByTagName for High-Frequency DOM Scans
+**Learning:** Using `querySelectorAll` combined with `.forEach()` for high-frequency DOM operations (like scanning editor content on keystrokes) creates significant overhead due to static NodeList allocation and closure creation. This causes main-thread blocking and garbage collection pauses during rapid typing.
+**Action:** Replace `querySelectorAll` with `getElementsByTagName` and standard `for` loops for high-frequency queries to leverage live, low-overhead HTMLCollections and avoid unnecessary memory allocations.

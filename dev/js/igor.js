@@ -69,21 +69,25 @@ window.Igor = {
 
     const readTime = Math.ceil(wordCount / 200);
 
-    const links = q.root.querySelectorAll("a");
+    // Optimization: Replaced querySelectorAll with getElementsByTagName
+    // and forEach with a standard loop to reduce NodeList allocation
+    // and closure overhead during frequent DOM scans on keystrokes.
+    const links = q.root.getElementsByTagName("a");
     let badLinks = 0;
-    links.forEach((a) => {
-      const href = a.getAttribute("href");
+    for (let i = 0; i < links.length; i++) {
+      const href = links[i].getAttribute("href");
       if (!href || href === "#" || href === "") badLinks++;
-    });
+    }
 
-    const images = q.root.querySelectorAll("img");
+    const images = q.root.getElementsByTagName("img");
     let missingAlt = 0;
-    images.forEach((img) => {
+    for (let i = 0; i < images.length; i++) {
+      const img = images[i];
       if (!img.alt || img.alt.trim() === "") missingAlt++;
-    });
+    }
 
     let headerIssue = null;
-    let h1Count = q.root.querySelectorAll("h1").length;
+    let h1Count = q.root.getElementsByTagName("h1").length;
 
     if (h1Count > 1) headerIssue = "Too many H1s";
     if (h1Count === 0 && wordCount > 50) headerIssue = "Missing H1";
