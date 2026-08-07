@@ -445,13 +445,11 @@ async function slaOp() {
       i.removeAttribute("data-original-src");
     });
 
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(originalRawHTML, "text/html");
-    doc.body.innerHTML = clone.innerHTML;
-
-    if (window.SEO) SEO.applyToDoc(doc);
-
-    const newHTML = new XMLSerializer().serializeToString(doc);
+    const newHTML = serializeDocument(
+      originalRawHTML,
+      clone.innerHTML,
+      true,
+    );
     const encoded =
       utf8ToBase64(newHTML) ||
       window.btoa(unescape(encodeURIComponent(newHTML)));
@@ -515,6 +513,7 @@ async function slaOp() {
       currentSha = putData.sha;
     }
     originalRawHTML = newHTML;
+    rememberCommitMessage(message);
     setSaved();
     if (!isAuto) alert("✅ Saved!");
   } catch (e) {
@@ -523,5 +522,314 @@ async function slaOp() {
   if (!isAuto) {
     btn.innerText = "💾 Save & Push";
     btn.disabled = false;
+  }
+}
+
+
+/* ========== Feature helpers (history, upload, serialize) ========== */
+
+const LAST_COMMIT_KEY = "frankenstein_last_commit_msg";
+
+function rememberCommitMessage(message) {
+  try {
+    if (message && !message.startsWith("[Autosave]")) {
+      localStorage.setItem(LAST_COMMIT_KEY, message);
+    }
+  } catch (e) {}
+}
+
+/**
+ * Reconstruct full HTML preserving doctype and <html> attributes
+ * from the original document when possible.
+ */
+function serializeDocument(originalRaw, bodyInnerHTML, applySeo) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(originalRaw, "text/html");
+  doc.body.innerHTML = bodyInnerHTML;
+  if (applySeo && window.SEO) SEO.applyToDoc(doc);
+
+  // Prefer original doctype if present
+  let doctype = "<!DOCTYPE html>";
+  try {
+    const m = originalRaw.match(/<!DOCTYPE[^>]*>/i);
+    if (m) doctype = m[0];
+  } catch (e) {}
+
+  // Rebuild <html> opening tag with original attributes
+  let htmlOpen = "<html";
+  try {
+    const htmlEl = doc.documentElement;
+    if (htmlEl && htmlEl.attributes) {
+      for (let i = 0; i < htmlEl.attributes.length; i++) {
+        const a = htmlEl.attributes[i];
+        htmlOpen += " " + a.name + '="' + a.value.replace(/"/g, "&quot;") + '"';
+      }
+    }
+  } catch (e) {}
+  htmlOpen += ">";
+
+  const head = doc.head ? doc.head.outerHTML : "<head></head>";
+  const body = doc.body ? doc.body.outerHTML : "<body></body>";
+  return doctype + "\n" + htmlOpen + "\n" + head + "\n" + body + "\n</html>";
+}
+
+async function loadCommitHistory() {
+  const listEl = document.getElementById("history-list");
+  if (!listEl) return;
+  if (!currentPath || (config && config.isDemo)) {
+    listEl.innerHTML = "<li>History is not available in demo mode.</li>";
+    return;
+  }
+  listEl.innerHTML = "<li>Loading history…</li>";
+  try {
+    const fetchFn = typeof apiFetch === "function" ? apiFetch : githubFetch;
+    const res = await fetchFn(
+      `/repos/${config.owner}/${config.repo}/commits?path=${encodeURIComponent(currentPath)}&per_page=20`,
+    );
+    if (!res.ok) throw new Error("Failed to load commits (" + res.status + ")");
+    const commits = await res.json();
+    listEl.innerHTML = "";
+    if (!Array.isArray(commits) || commits.length === 0) {
+      listEl.innerHTML = "<li>No commits found for this file.</li>";
+      return;
+    }
+    commits.forEach(function (c) {
+      const li = document.createElement("li");
+      li.style.cursor = "pointer";
+      li.style.padding = "8px 4px";
+      li.style.borderBottom = "1px solid #334155";
+      const msg = (c.commit && c.commit.message ? c.commit.message : c.sha).split("\n")[0];
+      const date = c.commit && c.commit.author ? c.commit.author.date : "";
+      const short = c.sha ? c.sha.slice(0, 7) : "";
+      li.innerHTML =
+        "<strong>" +
+        short +
+        "</strong> — " +
+        msg.replace(/</g, "&lt;") +
+        (date
+          ? '<br><span style="opacity:0.7;font-size:0.85em">' +
+            new Date(date).toLocaleString() +
+            "</span>"
+          : "");
+      li.onclick = function () {
+        if (
+          confirm(
+            "Load this version into the editor?\nUnsaved changes will be lost.\n\n" +
+              msg,
+          )
+        ) {
+          revertToCommit(c.sha);
+        }
+      };
+      listEl.appendChild(li);
+    });
+  } catch (e) {
+    listEl.innerHTML = "<li style='color:#f87171'>Error: " + e.message + "</li>";
+  }
+}
+
+async function revertToCommit(sha) {
+  try {
+    const fetchFn = typeof apiFetch === "function" ? apiFetch : githubFetch;
+    const res = await fetchFn(
+      `/repos/${config.owner}/${config.repo}/contents/${currentPath}?ref=${encodeURIComponent(sha)}`,
+    );
+    if (!res.ok) throw new Error("Could not load version (" + res.status + ")");
+    const data = await res.json();
+    // Load content into editor without changing currentSha (user must Save to write back)
+    const content =
+      base64ToUtf8(data.content) ||
+      decodeURIComponent(escape(window.atob(data.content)));
+    originalRawHTML = content;
+    // Re-render by calling loadFile path but keep sha of HEAD for conflict checks
+    // Soft-load: parse and rebuild editor view
+    closeHistoryModal();
+    // Force reload from the blob we have by temporarily using a demo-like path
+    const parser = new DOMParser();
+    // Easiest reliable approach: write content into a temp path via loadFile after swapping
+    // Use loadFile which fetches again — instead patch current display:
+    await loadFileFromContent(content, currentPath);
+    setUnsaved();
+    alert(
+      "Historical version loaded into the editor. Click Save & Push to restore it on GitHub.",
+    );
+  } catch (e) {
+    alert("Revert failed: " + e.message);
+  }
+}
+
+/** Render editor from raw HTML string without refetching (for history). */
+async function loadFileFromContent(html, path) {
+  // Reuse loadFile by stashing — simplest: set demo-like local data path
+  // Direct approach: invoke core of loadFile
+  currentPath = path;
+  document.getElementById("active-filename").innerText = path + " (historical)";
+  const host = document.getElementById("editor-host");
+  if (!host.shadowRoot) shadow = host.attachShadow({ mode: "open" });
+  else shadow = host.shadowRoot;
+  // Trigger full loadFile after setting a one-shot override is complex;
+  // For reliability, call loadFile on current path then overwrite — user already confirmed.
+  // Instead: save content to a session flag and call internal rebuild.
+  originalRawHTML = html;
+  // Full reload of current file would overwrite — so rebuild using existing loadFile structure
+  // by temporarily using isDemo-style injection:
+  const wasDemo = config.isDemo;
+  const prevFetch = window.__frankensteinHistoryContent;
+  window.__frankensteinHistoryContent = html;
+  try {
+    // Monkey-patch: loadFile checks isDemo first. Use a lightweight rebuild:
+    shadow.innerHTML = "";
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    if (window.SEO) SEO.initInputs(doc);
+    const styleFix = document.createElement("style");
+    styleFix.textContent =
+      "[data-editable]{border:2px dashed #e74c3c;padding:6px;cursor:text;}";
+    shadow.appendChild(styleFix);
+    const pageWrapper = document.createElement("div");
+    pageWrapper.id = "cms-page-content";
+    pageWrapper.innerHTML = doc.body.innerHTML;
+    shadow.appendChild(pageWrapper);
+    injectScopedInlineStyles(doc, shadow, pageWrapper);
+    const currentDir = path.includes("/")
+      ? path.substring(0, path.lastIndexOf("/"))
+      : "";
+    const fetchFn = typeof apiFetch === "function" ? apiFetch : githubFetch;
+    const assetPromises = collectStylesheetPromises({
+      doc: doc,
+      shadow: shadow,
+      currentDir: currentDir,
+      resourceCache: resourceCache,
+      fetchRaw: async function (resolvedHref) {
+        try {
+          const r = await fetchFn(
+            `/repos/${config.owner}/${config.repo}/contents/${resolvedHref}`,
+            { headers: { Accept: "application/vnd.github.v3.raw" } },
+          );
+          if (!r.ok) return null;
+          return await r.text();
+        } catch (e) {
+          return null;
+        }
+      },
+    }).concat(
+      collectImagePromises({
+        pageWrapper: pageWrapper,
+        currentDir: currentDir,
+        resourceCache: resourceCache,
+        fetchRawBinary: async function (resolvedSrc) {
+          try {
+            const r = await fetchFn(
+              `/repos/${config.owner}/${config.repo}/contents/${resolvedSrc}`,
+              { headers: { Accept: "application/vnd.github.v3.raw" } },
+            );
+            if (!r.ok) return null;
+            const contentType =
+              r.headers.get("Content-Type") || "application/octet-stream";
+            const ab = await r.arrayBuffer();
+            return (
+              "data:" + contentType + ";base64," + arrayBufferToBase64(ab)
+            );
+          } catch (e) {
+            return null;
+          }
+        },
+      }),
+    );
+    await Promise.allSettled(assetPromises);
+    // Re-init editables minimally
+    pageWrapper.querySelectorAll("[data-editable]").forEach(function (el) {
+      if (!el.parentNode) return;
+      const initialHtml = el.innerHTML;
+      el.innerHTML = "";
+      const quillHost = document.createElement("div");
+      quillHost.className = "quill-host";
+      el.appendChild(quillHost);
+      const q = new Quill(quillHost, {
+        formats: [
+          "header",
+          "bold",
+          "italic",
+          "underline",
+          "link",
+          "image",
+          "list",
+          "align",
+        ],
+        modules: { toolbar: false },
+      });
+      if (window.Igor) window.Igor.init(q);
+      q.clipboard.dangerouslyPasteHTML(0, initialHtml);
+      el.__quill = q;
+      q.on("text-change", function () {
+        setUnsaved();
+      });
+    });
+    document.getElementById("saveBtn").style.display = "inline-block";
+  } finally {
+    window.__frankensteinHistoryContent = prevFetch;
+  }
+}
+
+async function handleImageUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+  if (config.isDemo) {
+    alert("Image upload is disabled in demo mode.");
+    return;
+  }
+  if (!currentPath) {
+    alert("Open a page before uploading images.");
+    return;
+  }
+  if (!/^image\//i.test(file.type)) {
+    alert("Please choose an image file.");
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    alert("Image too large (max 5MB).");
+    return;
+  }
+
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const destPath = "img/" + Date.now() + "-" + safeName;
+
+  try {
+    const buffer = await file.arrayBuffer();
+    const b64 = arrayBufferToBase64(buffer);
+    const fetchFn = typeof apiFetch === "function" ? apiFetch : githubFetch;
+    const putRes = await fetchFn(
+      `/repos/${config.owner}/${config.repo}/contents/${destPath}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Upload image " + safeName + " via Frankenstein CMS",
+          content: b64,
+        }),
+      },
+    );
+    if (!putRes.ok) {
+      let detail = "";
+      try {
+        const body = await putRes.json();
+        detail = body.message ? ": " + body.message : "";
+      } catch (_) {}
+      throw new Error("Upload failed (" + putRes.status + ")" + detail);
+    }
+    // Insert relative path into active Quill if available
+    const relPath = destPath;
+    if (typeof activeQuill !== "undefined" && activeQuill) {
+      const range = activeQuill.getSelection(true);
+      activeQuill.insertEmbed(range ? range.index : 0, "image", relPath);
+      setUnsaved();
+    }
+    alert("✅ Image uploaded to " + destPath + (activeQuill ? " and inserted." : ". Path copied — insert manually if needed."));
+    try {
+      await navigator.clipboard.writeText(relPath);
+    } catch (e) {}
+  } catch (e) {
+    alert("Upload error: " + e.message);
   }
 }

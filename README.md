@@ -87,19 +87,48 @@ Perfect if you build websites for clients. It uses a **Serverless Bouncer** (Sup
 
 ---
 
+
+
+---
+
+## 🔐 Security model (prod bouncer)
+
+The **bouncer** holds GitHub tokens server-side. Clients never see the token.
+
+| Mechanism | Purpose |
+|-----------|---------|
+| Email + site password | Initial authentication |
+| `X-Session-Token` (HMAC, 8h) | After login, password is not resent on every API call |
+| Artificial delay on bad auth | Slows brute force |
+| `sites.json` / Supabase `sites` table | Per-client token storage |
+
+### CORS
+
+Default bouncer CORS is permissive (`Access-Control-Allow-Origin: *`) so agency demos work from any host. For production:
+
+1. Prefer hosting the CMS UI and bouncer under related origins.
+2. Change `Access-Control-Allow-Origin` in `bouncer.php` / the Edge Function to your CMS origin (e.g. `https://cms.example.com`).
+3. Keep `Access-Control-Expose-Headers: X-Session-Token` so the browser can read session tokens.
+
+### Operational tips
+
+- Store `sites.json` **outside** the web root when using PHP, or protect it with server rules.
+- Rotate GitHub tokens if a bouncer host is compromised.
+- Use fine-grained GitHub PATs limited to the target repos.
+
 ## ⚰️ Todo & Roadmap
 
 **Planning:**
 
 **IMPORTANT:**
 
-- [ ] **Git Time Travel (History & Revert):** The ability to retrieve old versions (commits) via the GitHub API. In case you accidentally demolish the place.
-- [ ] **Mobile Preview:** A button to narrow the editor to mobile size (375px), so you can see if the layout breaks on small screens.
-- [ ] **Giving Igor a brain:** Making Igor smarter than just counting words (e.g. broken link checker or SEO warnings).
+- [x] **Git Time Travel (History & Revert):** Load past commits for the current file and restore via Save.
+- [x] **Mobile Preview:** Sidebar toggle narrows the editor to 375px.
+- [x] **Giving Igor a brain:** Empty links, missing alt, H1 issues, readability, long paragraphs.
 - [ ] **More SEO Options:** adding more options to edit the header and maybe have Igor help.
 
 **Later:**
 
 - [ ] **Phone Ready Editor:** An app for mobile devices to edit texts on the go. Maybe with just webview.
 - [ ] **Block Inserter Section:** A menu to inject ready-made HTML components (like Google Sites) directly into the `data-editable` container.
-- [ ] **Image Upload:** Support for uploading new images to the repo's `/img/` folder, so that the new sections don't remain naked.
+- [x] **Image Upload:** Upload images to `img/` and insert into the active editor.

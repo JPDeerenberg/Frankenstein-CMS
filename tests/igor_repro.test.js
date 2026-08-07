@@ -1,10 +1,10 @@
-const test = require('node:test');
-const assert = require('node:assert');
-const fs = require('fs');
-const vm = require('vm');
+const test = require("node:test");
+const assert = require("node:assert");
+const fs = require("fs");
+const vm = require("vm");
 
-test('igor.js XSS vulnerability fix verification', async (t) => {
-  const code = fs.readFileSync('dev/js/igor.js', 'utf8');
+test("igor.js XSS vulnerability fix verification", async (t) => {
+  const code = fs.readFileSync("dev/js/igor.js", "utf8");
 
   class MockElement {
     constructor(tag) {
@@ -12,9 +12,16 @@ test('igor.js XSS vulnerability fix verification', async (t) => {
       this.children = [];
       this.style = {};
       this.attributes = {};
+      this.className = "";
+      this._innerHTML = "";
     }
     appendChild(child) {
-      this.children.push(child);
+      // Flatten document fragments like a real DOM
+      if (child && child.tagName === "FRAGMENT" && child.children) {
+        for (const c of child.children) this.children.push(c);
+      } else {
+        this.children.push(child);
+      }
     }
     setAttribute(name, value) {
       this.attributes[name] = value;
@@ -23,36 +30,38 @@ test('igor.js XSS vulnerability fix verification', async (t) => {
       this._textContent = val;
     }
     get textContent() {
-      return this._textContent || '';
+      return this._textContent || "";
     }
-    querySelectorAll(selector) {
-      // Very basic selector mock
-      return [];
+    set innerHTML(val) {
+      this._innerHTML = val;
+      // Simulate clearing children when innerHTML is set to empty
+      if (val === "") this.children = [];
+    }
+    get innerHTML() {
+      return this._innerHTML;
     }
   }
 
-  const mockedContainer = new MockElement('div');
-  mockedContainer.innerHTML = ''; // Should be ignored or handle if we use it
+  const mockedContainer = new MockElement("div");
 
   const sandbox = {
     window: {},
     document: {
       getElementById: (id) => {
-        if (id === 'igor-stats') return mockedContainer;
+        if (id === "igor-stats") return mockedContainer;
         return null;
       },
       createElement: (tag) => new MockElement(tag),
-      createTextNode: (text) => ({ text }),
-      createDocumentFragment: () => ({
-        children: [],
-        appendChild(child) { this.children.push(child); }
-      }),
-      head: {
-        appendChild: () => {}
-      }
+      createDocumentFragment: () => {
+        const frag = new MockElement("fragment");
+        frag.appendChild = function (child) {
+          this.children.push(child);
+        };
+        return frag;
+      },
+      head: { appendChild: () => {} },
     },
     console: console,
-    documentNode: MockElement
   };
   sandbox.window = sandbox;
 
@@ -62,25 +71,27 @@ test('igor.js XSS vulnerability fix verification', async (t) => {
   const Igor = sandbox.window.Igor;
   Igor.init({ on: () => {} });
 
-  await t.test('Igor.render treats malicious input as plain text', () => {
-    const maliciousInput = '<img src=x onerror=alert(1)>';
+  await t.test("Igor.render treats malicious input as plain text", () => {
+    const maliciousInput = "<img src=x onerror=alert(1)>";
     Igor.render({
       words: 100,
       time: 1,
       badLinks: 0,
       missingAlt: 0,
-      headerIssue: maliciousInput
+      headerIssue: maliciousInput,
     });
 
-    // We need to find the badge that contains the headerIssue
-    // In our new implementation, it's one of the children of the issuesItem
-
-    // Find the igor-item for issues
-    const issuesItem = mockedContainer.children.find(c => c.className === 'igor-item' && c.style.display === 'flex');
-    const headerIssueBadge = issuesItem.children.find(c => c.textContent.includes(maliciousInput));
-
-    assert.ok(headerIssueBadge, 'Badge with malicious input should exist');
-    assert.strictEqual(headerIssueBadge.textContent, `⚠️ ${maliciousInput}`, 'Malicious input should be treated as plain text');
-    assert.ok(!mockedContainer.innerHTML.includes(maliciousInput), 'innerHTML should NOT contain malicious input if we only used textContent');
+    // After render, badges are children of the container
+    const badge = mockedContainer.children.find(
+      (c) => c.textContent && c.textContent.includes(maliciousInput),
+    );
+    assert.ok(badge, "Badge with malicious input should exist");
+    assert.strictEqual(
+      badge.textContent,
+      maliciousInput,
+      "Malicious input should be treated as plain text via textContent",
+    );
+    // Ensure we did not inject HTML via innerHTML of the badge
+    assert.strictEqual(badge._innerHTML || "", "");
   });
 });
