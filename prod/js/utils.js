@@ -65,9 +65,8 @@ function resolvePath(base, rel) {
 
 /**
  * Scope CSS so body/html selectors target the CMS content wrapper
- * instead of the real document body. More robust than a single-pass
- * body-only replace: handles body.class, body:hover, html, and
- * comma-separated selector lists.
+ * instead of the real document body. Handles body.class, body:hover,
+ * html, and comma-separated selector lists.
  */
 function scopeCssToCms(css, scopeSelector) {
   if (!css || typeof css !== "string") return css;
@@ -135,11 +134,10 @@ function cacheClear(map) {
 
 /**
  * Recursively list HTML files under a repo path.
- * @param {function} fetchFn - async (apiPath) => Response  (Contents API path)
- * @param {string} path - current path ("" = root)
- * @param {number} depth - current depth
+ * @param {function} fetchFn - async (apiPath) => Response
+ * @param {string} path
+ * @param {number} depth
  * @param {number} maxDepth
- * @returns {Promise<Array<{name:string, path:string}>>}
  */
 async function listHtmlFilesRecursive(fetchFn, path, depth, maxDepth) {
   depth = depth || 0;
@@ -187,4 +185,147 @@ async function listHtmlFilesRecursive(fetchFn, path, depth, maxDepth) {
     }
   }
   return files;
+}
+
+/**
+ * Shared stylesheet loader used by both dev and prod.
+ * - Relative paths: fetched via fetchRaw (GitHub API / bouncer)
+ * - Absolute http(s) URLs: fetched directly (CORS); skipped on failure
+ *
+ * @param {object} opts
+ * @param {Document} opts.doc
+ * @param {ShadowRoot} opts.shadow
+ * @param {string} opts.currentDir
+ * @param {Map} opts.resourceCache
+ * @param {function} opts.fetchRaw - async (resolvedPath) => string|null
+ * @returns {Promise[]} array of load promises
+ */
+function collectStylesheetPromises(opts) {
+  const doc = opts.doc;
+  const shadow = opts.shadow;
+  const currentDir = opts.currentDir;
+  const resourceCache = opts.resourceCache;
+  const fetchRaw = opts.fetchRaw;
+  const promises = [];
+
+  const links = doc.querySelectorAll('link[rel="stylesheet"]');
+  links.forEach(function (l) {
+    const href = l.getAttribute("href");
+    if (!href) return;
+
+    const isExternal = /^https?:\/\//i.test(href);
+
+    const p = (async function () {
+      try {
+        let css = null;
+
+        if (isExternal) {
+          // Policy: try direct fetch (many CDNs allow CORS). Fail soft.
+          try {
+            const r = await fetchWithRetry(href, { mode: "cors" });
+            if (r.ok) css = await r.text();
+          } catch (e) {
+            console.warn("External stylesheet blocked or failed:", href, e);
+            return;
+          }
+        } else {
+          const resolvedHref = resolvePath(currentDir, href);
+          if (resourceCache.has(resolvedHref)) {
+            css = await resourceCache.get(resolvedHref);
+          } else {
+            const fetchPromise = (async function () {
+              try {
+                return await fetchRaw(resolvedHref);
+              } catch (e) {
+                resourceCache.delete(resolvedHref);
+                return null;
+              }
+            })();
+            cacheSet(resourceCache, resolvedHref, fetchPromise);
+            css = await fetchPromise;
+            if (css === null) resourceCache.delete(resolvedHref);
+          }
+        }
+
+        if (!css) return;
+        css = scopeCssToCms(css);
+        const s = document.createElement("style");
+        s.textContent = css;
+        shadow.appendChild(s);
+      } catch (e) {
+        console.error("Could not load CSS:", href, e);
+      }
+    })();
+    promises.push(p);
+  });
+
+  return promises;
+}
+
+/**
+ * Shared image reanimation loader used by both dev and prod.
+ * Relative images are fetched as raw binaries and turned into data URLs.
+ *
+ * @returns {Promise[]}
+ */
+function collectImagePromises(opts) {
+  const pageWrapper = opts.pageWrapper;
+  const currentDir = opts.currentDir;
+  const resourceCache = opts.resourceCache;
+  const fetchRawBinary = opts.fetchRawBinary; // async (path) => dataUrl|null
+  const promises = [];
+
+  const imgs = pageWrapper.querySelectorAll("img");
+  imgs.forEach(function (img) {
+    const src = img.getAttribute("src");
+    if (!src || /^https?:\/\//i.test(src)) return;
+    img.setAttribute("data-original-src", src);
+
+    const resolvedSrc = resolvePath(currentDir, src);
+    const p = (async function () {
+      try {
+        if (resourceCache.has(resolvedSrc)) {
+          const cachedSrc = await resourceCache.get(resolvedSrc);
+          if (cachedSrc) img.src = cachedSrc;
+          return;
+        }
+        const fetchPromise = (async function () {
+          try {
+            return await fetchRawBinary(resolvedSrc);
+          } catch (e) {
+            resourceCache.delete(resolvedSrc);
+            return null;
+          }
+        })();
+        cacheSet(resourceCache, resolvedSrc, fetchPromise);
+        const newSrc = await fetchPromise;
+        if (newSrc === null) {
+          resourceCache.delete(resolvedSrc);
+          return;
+        }
+        img.src = newSrc;
+      } catch (e) {
+        console.error("Image load failed", src, e);
+      }
+    })();
+    promises.push(p);
+  });
+
+  return promises;
+}
+
+/**
+ * Inject scoped <style> tags from a source document into the shadow root.
+ */
+function injectScopedInlineStyles(doc, shadow, pageWrapper) {
+  doc.head.querySelectorAll("style").forEach(function (s) {
+    const newStyle = document.createElement("style");
+    newStyle.textContent = scopeCssToCms(s.textContent);
+    shadow.appendChild(newStyle);
+  });
+  if (pageWrapper) {
+    pageWrapper.querySelectorAll("style").forEach(function (s) {
+      s.textContent = scopeCssToCms(s.textContent);
+    });
+  }
 }

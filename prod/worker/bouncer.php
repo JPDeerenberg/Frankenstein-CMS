@@ -1,11 +1,15 @@
 <?php
 /**
  * Frankenstein CMS - Simple PHP Bouncer
- * 
- * To use:
- * 1. Upload this file to your PHP server.
- * 2. Create a 'sites.json' in the same folder (protect it or put it outside web root).
- * 
+ *
+ * Supports password auth and short-lived session tokens so the site
+ * password is not sent on every request after the first successful login.
+ *
+ * Session token format (stateless HMAC):
+ *   base64url(email) . "." . base64url(expiry_unix) . "." . base64url(hmac)
+ * HMAC key = site password (already known only to server + client).
+ * Default TTL: 8 hours.
+ *
  * sites.json format:
  * {
  *   "user@site1.com": {
@@ -15,17 +19,16 @@
  * }
  */
 
-// 1. CORS Headers
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, HEAD, POST, OPTIONS, PUT, DELETE, PATCH");
-header("Access-Control-Allow-Headers: Content-Type, Site-Email, Site-Password, Accept");
+header("Access-Control-Allow-Headers: Content-Type, Site-Email, Site-Password, Site-Session, Accept");
+header("Access-Control-Expose-Headers: X-Session-Token");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
 
-// 2. Load Configuration
 $configFile = __DIR__ . '/sites.json';
 if (!file_exists($configFile)) {
     http_response_code(500);
@@ -35,27 +38,77 @@ if (!file_exists($configFile)) {
 
 $sites = json_decode(file_get_contents($configFile), true);
 
-// 3. Extract credentials
 $email = $_SERVER['HTTP_SITE_EMAIL'] ?? '';
 $password = $_SERVER['HTTP_SITE_PASSWORD'] ?? '';
+$session = $_SERVER['HTTP_SITE_SESSION'] ?? '';
 
-if (empty($email) || empty($password)) {
+if (empty($email)) {
     http_response_code(400);
-    echo "Missing Site-Email or Site-Password";
+    echo "Missing Site-Email";
     exit;
 }
 
-// 4. Authenticate
-if (!isset($sites[$email]) || $sites[$email]['password'] !== $password) {
-    sleep(2); // Anti-brute force
+if (!isset($sites[$email])) {
+    sleep(2);
+    http_response_code(401);
+    echo "Unauthorized: Site not configured";
+    exit;
+}
+
+$sitePassword = $sites[$email]['password'];
+$authenticated = false;
+$issueSession = false;
+
+function b64url_encode($data) {
+    return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+}
+
+function b64url_decode($data) {
+    $remainder = strlen($data) % 4;
+    if ($remainder) {
+        $data .= str_repeat('=', 4 - $remainder);
+    }
+    return base64_decode(strtr($data, '-_', '+/'));
+}
+
+function make_session_token($email, $password, $ttl = 28800) {
+    $exp = (string)(time() + $ttl);
+    $payload = b64url_encode($email) . '.' . b64url_encode($exp);
+    $sig = b64url_encode(hash_hmac('sha256', $payload, $password, true));
+    return $payload . '.' . $sig;
+}
+
+function verify_session_token($token, $email, $password) {
+    $parts = explode('.', $token);
+    if (count($parts) !== 3) return false;
+    list($eB64, $expB64, $sigB64) = $parts;
+    $tokenEmail = b64url_decode($eB64);
+    $exp = intval(b64url_decode($expB64));
+    if ($tokenEmail !== $email) return false;
+    if ($exp < time()) return false;
+    $payload = $eB64 . '.' . $expB64;
+    $expected = b64url_encode(hash_hmac('sha256', $payload, $password, true));
+    return hash_equals($expected, $sigB64);
+}
+
+if (!empty($session) && verify_session_token($session, $email, $sitePassword)) {
+    $authenticated = true;
+} elseif (!empty($password) && hash_equals($sitePassword, $password)) {
+    $authenticated = true;
+    $issueSession = true;
+} else {
+    sleep(2);
     http_response_code(401);
     echo "Unauthorized: Incorrect credentials";
     exit;
 }
 
+if ($issueSession) {
+    header('X-Session-Token: ' . make_session_token($email, $sitePassword));
+}
+
 $token = $sites[$email]['github_token'];
 
-// 5. Proxy to GitHub
 $path = $_GET['path'] ?? '/';
 $url = "https://api.github.com" . (str_starts_with($path, '/') ? $path : "/$path");
 
@@ -67,7 +120,6 @@ $headers = [
     "User-Agent: Frankenstein-CMS-PHP-Bouncer"
 ];
 
-// Forward relevant headers from the original request
 $forwardHeaders = ['Content-Type', 'Accept'];
 foreach ($forwardHeaders as $h) {
     $headerName = 'HTTP_' . strtoupper(str_replace('-', '_', $h));
@@ -79,6 +131,7 @@ foreach ($forwardHeaders as $h) {
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+curl_setopt($ch, CURLOPT_HEADER, true);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET' && $_SERVER['REQUEST_METHOD'] !== 'HEAD') {
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $_SERVER['REQUEST_METHOD']);
@@ -88,15 +141,27 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET' && $_SERVER['REQUEST_METHOD'] !== 'HEAD
     }
 }
 
-$response = curl_exec($ch);
+$raw = curl_exec($ch);
+$headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-
+$error = curl_error($ch);
 curl_close($ch);
 
-// 6. Forward Response
-http_response_code($httpCode);
-if ($contentType) {
-    header("Content-Type: $contentType");
+if ($error) {
+    http_response_code(502);
+    echo "Bouncer proxy error: $error";
+    exit;
 }
+
+$respHeaders = substr($raw, 0, $headerSize);
+$response = substr($raw, $headerSize);
+
+http_response_code($httpCode);
+
+foreach (explode("\r\n", $respHeaders) as $line) {
+    if (stripos($line, 'Content-Type:') === 0 || stripos($line, 'Content-Length:') === 0) {
+        header($line);
+    }
+}
+
 echo $response;

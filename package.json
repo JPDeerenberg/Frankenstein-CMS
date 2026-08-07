@@ -1,4 +1,13 @@
 {
+  "name": "frankenstein-cms",
+  "private": true,
+  "description": "Zero-install CMS for static HTML sites on GitHub",
+  "scripts": {
+    "format": "prettier --write \"dev/**/*.{js,css,html,json}\" \"prod/**/*.{js,css,html,json,ts,php}\" \"tests/**/*.js\" \"*.md\" \"package.json\"",
+    "format:check": "prettier --check \"dev/**/*.{js,css,html,json}\" \"prod/**/*.{js,css,html,json,ts,php}\" \"tests/**/*.js\" \"*.md\" \"package.json\"",
+    "test": "node --test tests/*.js",
+    "check:parity": "node scripts/check-parity.js"
+  },
   "dependencies": {
     "prettier": "^3.8.3"
   }

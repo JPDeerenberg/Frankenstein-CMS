@@ -4,16 +4,24 @@
     <meta charset="UTF-8" />
     <title>CMS</title>
 
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.quilljs.com https://cdnjs.cloudflare.com 'unsafe-inline'; style-src 'self' https://cdn.quilljs.com https://cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://api.github.com https://cdn.jsdelivr.net https://cdn.quilljs.com https://*.supabase.co; font-src 'self' data:; frame-ancestors 'none';" />
+
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css"
+      integrity="sha384-eHoWBq4xGyEfS3rmZe6gvzlNS/nNJhiPPbKCJN1cQHJukU+q6ji3My2fJGYd1EBo"
+      crossorigin="anonymous"
     />
 
     <link
       href="https://cdn.quilljs.com/1.3.6/quill.core.css"
+      integrity="sha384-ALYAqiHQ/benSEoaAdtApgGlJw+kYb3ZblMPowISPWcDniLEHIkQCeqrXLKTSpmR"
+      crossorigin="anonymous"
       rel="stylesheet"
     />
-    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"
+      integrity="sha384-0zm5QqnR2gL4GY5AwreU3xp5AEGWqkdbamrRLeXwWwepp4JqmPRawLJFD8Cm802W"
+      crossorigin="anonymous"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 
