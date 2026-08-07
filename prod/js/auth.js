@@ -103,7 +103,7 @@ async function saveConfigAndLogin() {
     }
 
     config = { bouncerUrl, owner, repo, email };
-    encryptConfig(config, password);
+    await encryptConfig(config, password);
     config.password = password; // Retain in memory for Bouncer auth
     loginMsg.innerText = "Connected.";
     showDashboard();
@@ -139,7 +139,7 @@ window.onload = async () => {
   if (hasData) {
     const password = prompt("🔐 Session password:");
     if (!password) return;
-    const decrypted = decryptConfig(password);
+    const decrypted = await decryptConfig(password);
     if (decrypted) {
       config = decrypted;
       config.password = password; // Retain in memory for Bouncer auth

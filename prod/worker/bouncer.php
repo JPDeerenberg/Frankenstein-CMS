@@ -48,14 +48,10 @@ if (empty($email)) {
     exit;
 }
 
-if (!isset($sites[$email])) {
-    sleep(2);
-    http_response_code(401);
-    echo "Unauthorized: Site not configured";
-    exit;
-}
+$siteConfig = $sites[$email] ?? ['password' => 'dummy', 'github_token' => 'dummy'];
+$sitePassword = $siteConfig['password'];
+$siteExists = isset($sites[$email]);
 
-$sitePassword = $sites[$email]['password'];
 $authenticated = false;
 $issueSession = false;
 
@@ -91,9 +87,12 @@ function verify_session_token($token, $email, $password) {
     return hash_equals($expected, $sigB64);
 }
 
-if (!empty($session) && verify_session_token($session, $email, $sitePassword)) {
+$validSession = !empty($session) && verify_session_token($session, $email, $sitePassword);
+$validPassword = !empty($password) && hash_equals($sitePassword, $password);
+
+if ($siteExists && $validSession) {
     $authenticated = true;
-} elseif (!empty($password) && hash_equals($sitePassword, $password)) {
+} elseif ($siteExists && $validPassword) {
     $authenticated = true;
     $issueSession = true;
 } else {

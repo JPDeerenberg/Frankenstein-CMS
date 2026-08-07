@@ -37,7 +37,7 @@ async function hmacSign(payload: string, secret: string): Promise<string> {
 async function makeSessionToken(email: string, password: string): Promise<string> {
   const exp = String(Math.floor(Date.now() / 1000) + SESSION_TTL_SEC);
   const payload = `${b64encode(new TextEncoder().encode(email))}.${b64encode(new TextEncoder().encode(exp))}`;
-  const sig = await hmacSign(payload, password);
+  const sig = await hmacSign(payload, Deno.env.get("HMAC_SECRET") || password);
   return `${payload}.${sig}`;
 }
 
@@ -55,7 +55,7 @@ async function verifySessionToken(
     if (tokenEmail !== email) return false;
     if (isNaN(exp) || exp < Math.floor(Date.now() / 1000)) return false;
     const payload = `${eB64}.${expB64}`;
-    const expected = await hmacSign(payload, password);
+    const expected = await hmacSign(payload, Deno.env.get("HMAC_SECRET") || password);
     return expected === sig;
   } catch {
     return false;
