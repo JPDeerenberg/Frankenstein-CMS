@@ -34,6 +34,25 @@
     <script src="js/seo.js" defer></script>
     <script src="js/igor.js" defer></script>
     <link rel="stylesheet" href="css/style.css" />
+  
+    <style id="feature-modal-css">
+      .feature-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.75);
+        z-index: 10000;
+        align-items: center;
+        justify-content: center;
+      }
+      .feature-modal.open {
+        display: flex;
+      }
+      #btn-mobile-preview.active-tool {
+        outline: 2px solid #38bdf8;
+      }
+    </style>
+
   </head>
   <body>
     <div id="telepathic-menu">
@@ -98,6 +117,41 @@
           >
             ⚙️ SEO & Metadata
           </button>
+
+        <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px;">
+          <button
+            class="action"
+            id="btn-mobile-preview"
+            onclick="toggleMobilePreview()"
+            style="width: 100%; text-align: left; background: #1e293b; border: 1px solid #334155;"
+            title="Preview at 375px width"
+          >
+            📱 Mobile preview
+          </button>
+          <button
+            class="action"
+            onclick="openHistoryModal()"
+            style="width: 100%; text-align: left; background: #1e293b; border: 1px solid #334155;"
+            title="View commit history for this file"
+          >
+            ⏪ History / Revert
+          </button>
+          <button
+            class="action"
+            onclick="triggerImageUpload()"
+            style="width: 100%; text-align: left; background: #1e293b; border: 1px solid #334155;"
+            title="Upload an image to img/ in the repo"
+          >
+            🖼 Upload image
+          </button>
+          <input
+            type="file"
+            id="image-upload-input"
+            accept="image/*"
+            style="display: none"
+            onchange="handleImageUpload(event)"
+          />
+        </div>
         </div>
         <div
           style="
@@ -162,6 +216,20 @@
       </div>
     </div>
 
+    
+    <div id="history-modal" class="feature-modal">
+      <div class="login-box" style="max-width: 520px; max-height: 80vh; overflow: auto;">
+        <h3>⏪ File history</h3>
+        <p style="font-size: 0.9em; opacity: 0.8;">
+          Click a commit to load that version into the editor. Save to push it back to GitHub.
+        </p>
+        <ul id="history-list" style="list-style: none; padding: 0; margin: 12px 0;"></ul>
+        <div class="modal-actions">
+          <button class="btn-secondary" onclick="closeHistoryModal()">Close</button>
+        </div>
+      </div>
+    </div>
+
     <div id="seo-modal">
       <div class="login-box">
         <h3>⚙️ Page Settings</h3>
@@ -187,5 +255,14 @@
       let autosaveTimer = null;
       const AUTOSAVE_INTERVAL = 30000;
     </script>
+  
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("sw.js").catch(function () {});
+        });
+      }
+    </script>
+
   </body>
 </html>

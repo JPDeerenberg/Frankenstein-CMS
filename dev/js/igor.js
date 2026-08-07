@@ -10,11 +10,8 @@ window.Igor = {
         .igor-ok { background: #dcfce7; color: #166534; }
         .igor-warn { background: #fef9c3; color: #854d0e; }
         .igor-err { background: #fee2e2; color: #991b1b; }
-        
-        /* THE NUCLEAR OPTION: FORCE BLACK TEXT */
         #igor-stats { color: #000000 !important; }
         #igor-stats * { color: #000000 !important; }
-
         .igor-tooltip { position: relative; cursor: help; border-bottom: 1px dotted #666; }
         .igor-tooltip:hover::after {
           content: attr(data-tip);
@@ -35,15 +32,43 @@ window.Igor = {
       document.head.appendChild(style);
     }
 
-    const debouncedScan = typeof debounce === "function"
-      ? debounce(() => this.scan(quillInstance), 300)
-      : () => this.scan(quillInstance);
+    const debouncedScan =
+      typeof debounce === "function"
+        ? debounce(() => this.scan(quillInstance), 300)
+        : () => this.scan(quillInstance);
 
     quillInstance.on("text-change", debouncedScan);
-
     quillInstance.on("selection-change", (range) => {
       if (range) debouncedScan();
     });
+  },
+
+  /** Rough readability: average words per sentence (lower is easier). */
+  readabilityScore: function (text) {
+    const clean = text.replace(/\s+/g, " ").trim();
+    if (!clean) return null;
+    let sentences = 0;
+    for (let i = 0; i < clean.length; i++) {
+      const c = clean[i];
+      if (c === "." || c === "!" || c === "?") sentences++;
+    }
+    if (sentences === 0) sentences = 1;
+    let words = 0;
+    let inWord = false;
+    for (let i = 0; i < clean.length; i++) {
+      const code = clean.charCodeAt(i);
+      if (code <= 32) {
+        inWord = false;
+      } else if (!inWord) {
+        inWord = true;
+        words++;
+      }
+    }
+    const avg = words / sentences;
+    // Map to a simple label
+    if (avg <= 12) return { label: "Easy", avg: avg };
+    if (avg <= 20) return { label: "OK", avg: avg };
+    return { label: "Dense", avg: avg };
   },
 
   scan: function (q) {
@@ -57,8 +82,11 @@ window.Igor = {
       let inWord = false;
       for (let i = 0; i < cleanText.length; i++) {
         const code = cleanText.charCodeAt(i);
-        // Match spaces, tabs, and newlines (ASCII <= 32)
-        if (code <= 32 && (code === 32 || code === 9 || code === 10 || code === 13) || code === 160) {
+        if (
+          (code <= 32 &&
+            (code === 32 || code === 9 || code === 10 || code === 13)) ||
+          code === 160
+        ) {
           inWord = false;
         } else if (!inWord) {
           inWord = true;
@@ -67,16 +95,15 @@ window.Igor = {
       }
     }
 
-    const readTime = Math.ceil(wordCount / 200);
+    const readTime = Math.ceil(wordCount / 200) || 0;
 
-    // Optimization: Replaced querySelectorAll with getElementsByTagName
-    // and forEach with a standard loop to reduce NodeList allocation
-    // and closure overhead during frequent DOM scans on keystrokes.
     const links = q.root.getElementsByTagName("a");
     let badLinks = 0;
+    let externalLinks = 0;
     for (let i = 0; i < links.length; i++) {
       const href = links[i].getAttribute("href");
       if (!href || href === "#" || href === "") badLinks++;
+      else if (/^https?:\/\//i.test(href)) externalLinks++;
     }
 
     const images = q.root.getElementsByTagName("img");
@@ -87,112 +114,116 @@ window.Igor = {
     }
 
     let headerIssue = null;
-    let h1Count = q.root.getElementsByTagName("h1").length;
-
+    const h1Count = q.root.getElementsByTagName("h1").length;
     if (h1Count > 1) headerIssue = "Too many H1s";
     if (h1Count === 0 && wordCount > 50) headerIssue = "Missing H1";
+
+    const readability = this.readabilityScore(cleanText);
+
+    // Long-paragraph warning
+    let longParas = 0;
+    const paras = q.root.getElementsByTagName("p");
+    for (let i = 0; i < paras.length; i++) {
+      const t = (paras[i].textContent || "").trim();
+      if (t.split(/\s+/).length > 120) longParas++;
+    }
 
     this.render({
       words: wordCount,
       time: readTime,
-      badLinks,
-      missingAlt,
-      headerIssue,
+      badLinks: badLinks,
+      missingAlt: missingAlt,
+      headerIssue: headerIssue,
+      externalLinks: externalLinks,
+      readability: readability,
+      longParas: longParas,
     });
   },
 
   render: function (stats) {
-    this.container.innerHTML = "";
+    if (!this.container) return;
 
-    const createItem = (content, title) => {
-      const div = document.createElement("div");
-      div.className = "igor-item";
-      if (title) div.title = title;
-      if (typeof content === "string") {
-        div.textContent = content;
-      } else {
-        div.appendChild(content);
-      }
-      return div;
-    };
+    const frag = document.createDocumentFragment();
 
-    const createDivider = () => {
-      const div = document.createElement("div");
-      div.className = "igor-divider";
-      return div;
-    };
-
-    const createBadge = (text, type, tip) => {
+    function badge(text, cls, tip) {
       const span = document.createElement("span");
-      span.className = `igor-badge igor-${type} igor-tooltip`;
-      span.setAttribute("data-tip", tip);
+      span.className = "igor-badge " + cls + (tip ? " igor-tooltip" : "");
       span.textContent = text;
+      if (tip) span.setAttribute("data-tip", tip);
       return span;
-    };
+    }
 
-    // Words
-    const wordsStrong = document.createElement("strong");
-    wordsStrong.textContent = stats.words;
-    const wordsContent = document.createDocumentFragment();
-    wordsContent.appendChild(document.createTextNode("📝 "));
-    wordsContent.appendChild(wordsStrong);
-    this.container.appendChild(createItem(wordsContent, "Words"));
-    this.container.appendChild(createDivider());
+    frag.appendChild(
+      badge(
+        stats.words + " words",
+        "igor-ok",
+        "~" + stats.time + " min read",
+      ),
+    );
 
-    // Time
-    const timeStrong = document.createElement("strong");
-    timeStrong.textContent = `${stats.time}m`;
-    const timeContent = document.createDocumentFragment();
-    timeContent.appendChild(document.createTextNode("⏱️ "));
-    timeContent.appendChild(timeStrong);
-    this.container.appendChild(createItem(timeContent, "Time"));
-    this.container.appendChild(createDivider());
+    if (stats.readability) {
+      const cls =
+        stats.readability.label === "Dense"
+          ? "igor-warn"
+          : stats.readability.label === "Easy"
+            ? "igor-ok"
+            : "igor-ok";
+      frag.appendChild(
+        badge(
+          "Read: " + stats.readability.label,
+          cls,
+          "Avg " + stats.readability.avg.toFixed(1) + " words/sentence",
+        ),
+      );
+    }
 
-    // Issues
-    let issues = [];
     if (stats.badLinks > 0) {
-      issues.push(createBadge(`🔗 ${stats.badLinks}`, "err", `${stats.badLinks} broken links`));
+      frag.appendChild(
+        badge(
+          stats.badLinks + " empty link(s)",
+          "igor-err",
+          "Links with empty or # href",
+        ),
+      );
     }
+
     if (stats.missingAlt > 0) {
-      issues.push(createBadge(`🖼️ ${stats.missingAlt}`, "warn", `${stats.missingAlt} images need alt text`));
+      frag.appendChild(
+        badge(
+          stats.missingAlt + " img missing alt",
+          "igor-warn",
+          "Accessibility: add alt text",
+        ),
+      );
     }
+
     if (stats.headerIssue) {
-      issues.push(createBadge(`⚠️ ${stats.headerIssue}`, "warn", `Structure: ${stats.headerIssue}`));
+      frag.appendChild(
+        badge(stats.headerIssue, "igor-warn", "SEO heading structure"),
+      );
     }
 
-    const issuesItem = document.createElement("div");
-    issuesItem.className = "igor-item";
-    issuesItem.style.display = "flex";
-    issuesItem.style.gap = "5px";
-
-    if (issues.length === 0) {
-      const cleanBadge = document.createElement("span");
-      cleanBadge.className = "igor-badge igor-ok";
-      cleanBadge.textContent = "✨ Clean";
-      issuesItem.appendChild(cleanBadge);
-    } else {
-      issues.forEach(issue => issuesItem.appendChild(issue));
+    if (stats.longParas > 0) {
+      frag.appendChild(
+        badge(
+          stats.longParas + " long para(s)",
+          "igor-warn",
+          "Paragraphs over ~120 words are hard to scan",
+        ),
+      );
     }
-    this.container.appendChild(issuesItem);
 
-    // Comment
-    let comment = "Ok.";
-    if (stats.words === 0) comment = "Empty.";
-    else if (issues.length > 2) comment = "Messy.";
-    else if (stats.words > 500) comment = "Long.";
+    if (stats.externalLinks > 0) {
+      frag.appendChild(
+        badge(
+          stats.externalLinks + " external",
+          "igor-ok",
+          "Outbound https links in this block",
+        ),
+      );
+    }
 
-    this.container.appendChild(createDivider());
-    const commentItem = document.createElement("div");
-    commentItem.className = "igor-item";
-    commentItem.style.fontStyle = "italic";
-    commentItem.style.opacity = "0.8";
-    commentItem.style.fontSize = "0.8em";
-    commentItem.style.whiteSpace = "nowrap";
-    commentItem.style.overflow = "hidden";
-    commentItem.style.textOverflow = "ellipsis";
-    commentItem.style.maxWidth = "100px";
-    commentItem.title = comment;
-    commentItem.textContent = comment;
-    this.container.appendChild(commentItem);
+    this.container.innerHTML = "";
+    this.container.appendChild(frag);
   },
 };
