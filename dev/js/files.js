@@ -34,11 +34,13 @@ async function fetchFileList() {
   }
 
   try {
-    listEl.innerHTML = "<li style='color:#666;pointer-events:none'>Loading files…</li>";
+    listEl.innerHTML =
+      "<li style='color:#666;pointer-events:none'>Loading files…</li>";
     const files = await listHtmlFilesRecursive(apiFetch, "", 0, 4);
     listEl.innerHTML = "";
     if (files.length === 0) {
-      listEl.innerHTML = "<li style='color:#666;pointer-events:none'>No HTML files found</li>";
+      listEl.innerHTML =
+        "<li style='color:#666;pointer-events:none'>No HTML files found</li>";
       return;
     }
     files.forEach(function (file) {
@@ -52,17 +54,16 @@ async function fetchFileList() {
     });
   } catch (e) {
     console.error("fetchFileList failed", e);
-    listEl.innerHTML = "<li style='color:#c0392b;pointer-events:none'>Error loading files</li>";
+    listEl.innerHTML =
+      "<li style='color:#c0392b;pointer-events:none'>Error loading files</li>";
   }
 }
 
 async function loadFile(path, menuElement) {
   if (menuElement) {
-    document
-      .querySelectorAll("#file-list li")
-      .forEach(function (l) {
-        l.classList.remove("active");
-      });
+    document.querySelectorAll("#file-list li").forEach(function (l) {
+      l.classList.remove("active");
+    });
     menuElement.classList.add("active");
   }
   currentPath = path;
@@ -185,13 +186,6 @@ async function loadFile(path, menuElement) {
     `;
     shadow.appendChild(styleFix);
 
-    // Inject <style> blocks from the page <head>, scoped to CMS wrapper
-    doc.head.querySelectorAll("style").forEach(function (s) {
-      const newStyle = document.createElement("style");
-      newStyle.textContent = scopeCssToCms(s.textContent);
-      shadow.appendChild(newStyle);
-    });
-
     const pageWrapper = document.createElement("div");
     pageWrapper.id = "cms-page-content";
 
@@ -206,113 +200,49 @@ async function loadFile(path, menuElement) {
     pageWrapper.innerHTML = doc.body.innerHTML;
     shadow.appendChild(pageWrapper);
 
-    // Scope inline <style> blocks that lived in the body
-    pageWrapper.querySelectorAll("style").forEach(function (s) {
-      s.textContent = scopeCssToCms(s.textContent);
-    });
+    // Shared asset loaders (deduped into utils.js)
+    injectScopedInlineStyles(doc, shadow, pageWrapper);
 
-    // ---- Asset loading (CSS + images) with Promise.allSettled ----
-    const assetPromises = [];
+    const assetPromises = collectStylesheetPromises({
+      doc: doc,
+      shadow: shadow,
+      currentDir: currentDir,
+      resourceCache: resourceCache,
+      fetchRaw: async function (resolvedHref) {
+        const r = await apiFetch(
+          `/repos/${config.owner}/${config.repo}/contents/${resolvedHref}`,
+          { headers: { Accept: "application/vnd.github.v3.raw" } },
+        );
+        if (!r.ok) return null;
+        return await r.text();
+      },
+    }).concat(
+      collectImagePromises({
+        pageWrapper: pageWrapper,
+        currentDir: currentDir,
+        resourceCache: resourceCache,
+        fetchRawBinary: async function (resolvedSrc) {
+          const r = await apiFetch(
+            `/repos/${config.owner}/${config.repo}/contents/${resolvedSrc}`,
+            { headers: { Accept: "application/vnd.github.v3.raw" } },
+          );
+          if (!r.ok) return null;
+          const contentType =
+            r.headers.get("Content-Type") || "application/octet-stream";
+          const ab = await r.arrayBuffer();
+          const b64 = arrayBufferToBase64(ab);
+          return `data:${contentType};base64,${b64}`;
+        },
+      }),
+    );
 
-    const links = doc.querySelectorAll('link[rel="stylesheet"]');
-    links.forEach(function (l) {
-      const href = l.getAttribute("href");
-      if (!href || href.startsWith("http")) return; // external still skipped (CORS)
-
-      const resolvedHref = resolvePath(currentDir, href);
-      const p = (async function () {
-        try {
-          let css;
-          if (resourceCache.has(resolvedHref)) {
-            css = await resourceCache.get(resolvedHref);
-          } else {
-            const fetchPromise = (async function () {
-              try {
-                const r = await apiFetch(
-                  `/repos/${config.owner}/${config.repo}/contents/${resolvedHref}`,
-                  { headers: { Accept: "application/vnd.github.v3.raw" } },
-                );
-                if (!r.ok) return null;
-                return await r.text();
-              } catch (e) {
-                resourceCache.delete(resolvedHref);
-                return null;
-              }
-            })();
-            cacheSet(resourceCache, resolvedHref, fetchPromise);
-            css = await fetchPromise;
-            if (css === null) {
-              resourceCache.delete(resolvedHref);
-              return;
-            }
-          }
-          if (!css) return;
-          css = scopeCssToCms(css);
-          const s = document.createElement("style");
-          s.textContent = css;
-          shadow.appendChild(s);
-        } catch (e) {
-          console.error("Could not load CSS:", resolvedHref, e);
-        }
-      })();
-      assetPromises.push(p);
-    });
-
-    const imgs = pageWrapper.querySelectorAll("img");
-    imgs.forEach(function (img) {
-      const src = img.getAttribute("src");
-      if (!src || src.startsWith("http")) return;
-      img.setAttribute("data-original-src", src);
-
-      const resolvedSrc = resolvePath(currentDir, src);
-      const p = (async function () {
-        try {
-          if (resourceCache.has(resolvedSrc)) {
-            const cachedSrc = await resourceCache.get(resolvedSrc);
-            if (cachedSrc) img.src = cachedSrc;
-            return;
-          }
-          const fetchPromise = (async function () {
-            try {
-              const r = await apiFetch(
-                `/repos/${config.owner}/${config.repo}/contents/${resolvedSrc}`,
-                { headers: { Accept: "application/vnd.github.v3.raw" } },
-              );
-              if (!r.ok) return null;
-              const contentType =
-                r.headers.get("Content-Type") || "application/octet-stream";
-              const ab = await r.arrayBuffer();
-              const b64 = arrayBufferToBase64(ab);
-              return `data:${contentType};base64,${b64}`;
-            } catch (e) {
-              resourceCache.delete(resolvedSrc);
-              return null;
-            }
-          })();
-          cacheSet(resourceCache, resolvedSrc, fetchPromise);
-          const newSrc = await fetchPromise;
-          if (newSrc === null) {
-            resourceCache.delete(resolvedSrc);
-            return;
-          }
-          img.src = newSrc;
-        } catch (e) {
-          console.error("Image load failed", src, e);
-        }
-      })();
-      assetPromises.push(p);
-    });
-
-    // Wait for all assets (do not block editor interactivity forever)
     await Promise.allSettled(assetPromises);
 
-    pageWrapper
-      .querySelectorAll("a")
-      .forEach(function (a) {
-        a.addEventListener("click", function (e) {
-          e.preventDefault();
-        });
+    pageWrapper.querySelectorAll("a").forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        e.preventDefault();
       });
+    });
 
     const editables = pageWrapper.querySelectorAll("[data-editable]");
     editables.forEach(function (el) {
