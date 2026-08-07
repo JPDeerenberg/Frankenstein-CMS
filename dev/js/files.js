@@ -76,6 +76,13 @@ async function loadFile(path, menuElement) {
   // Clear resource cache when switching files to bound memory
   cacheClear(resourceCache);
 
+  if (typeof autosaveTimer !== 'undefined' && autosaveTimer) {
+    clearInterval(autosaveTimer);
+  }
+  if (typeof isDirty !== 'undefined') {
+    isDirty = false;
+  }
+
   const host = document.getElementById("editor-host");
   if (!host.shadowRoot) shadow = host.attachShadow({ mode: "open" });
   else shadow = host.shadowRoot;
@@ -601,11 +608,12 @@ async function loadCommitHistory() {
       const msg = (c.commit && c.commit.message ? c.commit.message : c.sha).split("\n")[0];
       const date = c.commit && c.commit.author ? c.commit.author.date : "";
       const short = c.sha ? c.sha.slice(0, 7) : "";
+      const escapedMsg = msg.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
       li.innerHTML =
         "<strong>" +
         short +
         "</strong> — " +
-        msg.replace(/</g, "&lt;") +
+        escapedMsg +
         (date
           ? '<br><span style="opacity:0.7;font-size:0.85em">' +
             new Date(date).toLocaleString() +
@@ -796,8 +804,16 @@ async function handleImageUpload(event) {
   const destPath = "img/" + Date.now() + "-" + safeName;
 
   try {
-    const buffer = await file.arrayBuffer();
-    const b64 = arrayBufferToBase64(buffer);
+    const b64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        const base64Str = result.split(',')[1];
+        resolve(base64Str);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
     const fetchFn = typeof apiFetch === "function" ? apiFetch : githubFetch;
     const putRes = await fetchFn(
       `/repos/${config.owner}/${config.repo}/contents/${destPath}`,

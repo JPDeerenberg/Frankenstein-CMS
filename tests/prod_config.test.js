@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const vm = require('node:vm');
+const { webcrypto } = require('node:crypto');
 
 const code = fs.readFileSync('prod/js/config.js', 'utf8');
 
@@ -13,42 +14,18 @@ function createSandbox() {
     clear: () => { for (let key in storage) delete storage[key]; }
   };
 
-  const CryptoJS = {
-    AES: {
-      encrypt: (data, pass) => {
-        return {
-          toString: () => JSON.stringify({ ciphertext: data, password: pass })
-        };
-      },
-      decrypt: (ciphertext, pass) => {
-        let parsed;
-        try {
-            parsed = JSON.parse(ciphertext);
-        } catch (e) {
-            return { toString: () => { throw new Error('Malformed'); } };
-        }
-
-        return {
-          toString: (enc) => {
-            if (pass !== parsed.password) {
-                return "bad-data";
-            }
-            return parsed.ciphertext;
-          }
-        };
-      }
-    },
-    enc: {
-      Utf8: 'utf8'
-    }
-  };
-
   const context = {
     localStorage,
-    CryptoJS,
+    crypto: webcrypto,
+    TextEncoder,
+    TextDecoder,
+    Uint8Array,
+    btoa: (str) => Buffer.from(str, 'binary').toString('base64'),
+    atob: (b64) => Buffer.from(b64, 'base64').toString('binary'),
     console,
     JSON,
-    Error
+    Error,
+    String
   };
 
   vm.createContext(context);
@@ -56,55 +33,59 @@ function createSandbox() {
   return context;
 }
 
-test('encryptConfig stores encrypted data', () => {
+test('encryptConfig stores encrypted data', async () => {
   const sandbox = createSandbox();
   const conf = { foo: 'bar' };
   const pass = 'secret';
-  const result = sandbox.encryptConfig(conf, pass);
+  const result = await sandbox.encryptConfig(conf, pass);
 
   assert.strictEqual(result, true);
   const stored = sandbox.localStorage.getItem('frankenstein_encrypted_cfg');
-  const parsed = JSON.parse(stored);
-  assert.strictEqual(parsed.ciphertext, JSON.stringify(conf));
-  assert.strictEqual(parsed.password, pass);
+  assert.ok(stored);
 });
 
-test('encryptConfig returns false on error', () => {
+test('encryptConfig returns false on error', async () => {
   const sandbox = createSandbox();
-  sandbox.CryptoJS.AES.encrypt = () => { throw new Error('Encryption failed'); };
+  sandbox.crypto = {
+    ...webcrypto,
+    subtle: {
+      ...webcrypto.subtle,
+      encrypt: () => { throw new Error('Encryption failed'); }
+    }
+  };
 
-  const result = sandbox.encryptConfig({ a: 1 }, 'p');
+  const result = await sandbox.encryptConfig({ a: 1 }, 'p');
   assert.strictEqual(result, false);
 });
 
-test('decryptConfig retrieves and decrypts data', () => {
+test('decryptConfig retrieves and decrypts data', async () => {
   const sandbox = createSandbox();
   const conf = { foo: 'bar' };
   const pass = 'secret';
 
-  sandbox.encryptConfig(conf, pass);
-  const decrypted = sandbox.decryptConfig(pass);
+  await sandbox.encryptConfig(conf, pass);
+  const decrypted = await sandbox.decryptConfig(pass);
 
   assert.deepStrictEqual(decrypted, conf);
 });
 
-test('decryptConfig returns null if no data in localStorage', () => {
+test('decryptConfig returns null if no data in localStorage', async () => {
   const sandbox = createSandbox();
-  const result = sandbox.decryptConfig('any');
+  const result = await sandbox.decryptConfig('any');
   assert.strictEqual(result, null);
 });
 
-test('decryptConfig returns null on wrong password', () => {
+test('decryptConfig returns null on wrong password', async () => {
   const sandbox = createSandbox();
-  sandbox.encryptConfig({ a: 1 }, 'right');
+  await sandbox.encryptConfig({ a: 1 }, 'right');
 
-  const result = sandbox.decryptConfig('wrong');
+  const result = await sandbox.decryptConfig('wrong');
   assert.strictEqual(result, null);
 });
 
-test('decryptConfig returns null if data is corrupted', () => {
+test('decryptConfig returns null if data is corrupted', async () => {
     const sandbox = createSandbox();
     sandbox.localStorage.setItem('frankenstein_encrypted_cfg', 'garbage');
-    const result = sandbox.decryptConfig('any');
+    const result = await sandbox.decryptConfig('any');
     assert.strictEqual(result, null);
 });
