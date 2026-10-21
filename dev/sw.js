@@ -10,6 +10,8 @@ const ASSETS = [
   "./js/doc.js",
   "./js/blocks.js",
   "./js/pwa.js",
+  "./vendor/quill.min.js",
+  "./vendor/quill.core.css",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",

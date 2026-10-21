@@ -305,7 +305,7 @@ function buildPreviewStage(doc) {
 
   const qCss = document.createElement("link");
   qCss.rel = "stylesheet";
-  qCss.href = "https://cdn.quilljs.com/1.3.6/quill.core.css";
+  qCss.href = "vendor/quill.core.css";
   stage.appendChild(qCss);
 
   const styleFix = document.createElement("style");

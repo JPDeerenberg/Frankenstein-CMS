@@ -1,7 +1,7 @@
 # Next steps (not done yet, in priority order)
 
 1. **Isolate the preview in an `<iframe>` instead of a Shadow DOM.** Real `<html>/<body>`, so the site's CSS runs unmodified (no scoping regex), `@media` queries and the Mobile Preview become accurate, and text selection works in Firefox/Safari. Quill has to be loaded inside the iframe document. Biggest remaining quality win; needs browser testing.
-2. **Vendor Quill** (and water.css) into the repo instead of loading from CDNs, so the CMS works offline / behind blockers and the service worker can really cache the shell.
+2. **Vendor water.css too.** Quill is bundled already (`vendor/`); the dashboard stylesheet still comes from jsDelivr, so a first offline start has no styling. Optional: move to Quill 2 (rewrite of the editor integration).
 3. **Igor should aggregate all regions.** Each `Igor.init(quill)` overwrites the previous one, so the stats panel reflects the last edited block only.
 4. **Rewrite relative `url(...)` in repo stylesheets** (fonts, backgrounds) to blob URLs for the preview.
 5. **Replace `alert()/confirm()/prompt()`** with in-page dialogs (mobile, iframes).

@@ -14,7 +14,7 @@ const ROOT = path.join(__dirname, "../..");
 const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
 
 function quillSource() {
-  return fs.readFileSync(require.resolve("quill/dist/quill.js"), "utf8");
+  return fs.readFileSync(path.join(ROOT, "dev/vendor/quill.min.js"), "utf8");
 }
 
 function run(win, code) {

@@ -129,8 +129,8 @@ Default bouncer CORS is permissive (`Access-Control-Allow-Origin: *`) so agency 
 ## 🧪 Development
 
 ```bash
-npm install          # jsdom, quill, fake-indexeddb are dev-only (tests)
-npm test             # unit + end-to-end tests (real Quill in jsdom, fake GitHub API)
+npm install          # jsdom and fake-indexeddb are dev-only (tests)
+npm test             # unit + end-to-end tests (the real bundled Quill in jsdom, fake GitHub API)
 npm run check:parity # dev/ and prod/ share files.js, doc.js, utils.js … and must stay identical
 ```
 
@@ -138,6 +138,7 @@ npm run check:parity # dev/ and prod/ share files.js, doc.js, utils.js … and m
 
 ## ⚠️ Known limitations
 
+- **Quill is bundled** in `vendor/` (version 1.3.7, no CDN, works offline). `npm audit` no longer sees it because it is not an npm dependency, but know that Quill 1.x has one disputed, unpatched advisory (CVE-2021-3163: event-handler attributes in HTML fed to an HTML editor). The CMS never gives it raw HTML: the preview is sanitised first, Quill's whitelist drops handlers, and `tests/vendor.test.js` checks that payloads do not survive. Quill 2 is the long-term way out.
 - **Editor engine (Quill 1.x) keeps only basic formatting** (bold, italic, underline, links, headings, lists, images with alt/size). A block containing anything else (a `<span class>`, `<code>`, inline styles…) is marked with a yellow warning and asks before editing, because editing it would drop that markup. Regions you do not touch are never altered.
 - **Mobile Preview only narrows the editor.** CSS `@media` queries follow the real browser window, not the 375px preview.
 - **Phone use is built but only verified in an emulated browser.** The layout, installability files and drawer logic are tested; real-device behaviour (Android keyboards with Quill 1.x autocorrect, the native selection bubble) still needs a try-out on your phone.
