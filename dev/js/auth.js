@@ -12,6 +12,16 @@ async function saveConfigAndLogin() {
     const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
       headers: { Authorization: `token ${token}` },
     });
+    if (res.status === 401) {
+      loginMsg.innerText =
+        "Connection failed: GitHub rejected this token (expired or mistyped).";
+      return;
+    }
+    if (res.status === 404) {
+      loginMsg.innerText =
+        "Connection failed: repository not found, or the token has no access to it.";
+      return;
+    }
     if (!res.ok) {
       let detail = "";
       try {
@@ -39,7 +49,7 @@ async function saveConfigAndLogin() {
 
 function logout() {
   if (confirm("Logout?")) {
-    localStorage.removeItem("frankenstein_encrypted_cfg");
+    clearStoredConfig();
     location.reload();
   }
 }
@@ -66,6 +76,10 @@ window.onload = async () => {
       showDashboard();
       return;
     }
+    // Stored session cannot be decrypted (cleared site data, new browser profile…)
+    localStorage.removeItem("frankenstein_encrypted_cfg");
+    document.getElementById("login-msg").innerText =
+      "Your saved session could not be restored. Please log in again.";
   }
 
   // 1. Try URL parameters

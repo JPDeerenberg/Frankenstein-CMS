@@ -43,6 +43,105 @@ window.Igor = {
     });
   },
 
+  /**
+   * Igor's review of the page settings. Pure function: values in, notes out.
+   * @param {object} f      the SEO fields (title, desc, canonical, ogImage, lang, noindex …)
+   * @param {object} [facts] { h1, imgsMissingAlt } measured on the page itself
+   * @returns {{level:"err"|"warn"|"tip"|"ok", text:string}[]}
+   */
+  seoReport: function (f, facts) {
+    const notes = [];
+    const add = function (level, text) {
+      notes.push({ level: level, text: text });
+    };
+
+    const tl = (f.title || "").length;
+    if (tl === 0)
+      add("err", "Add a page title: it is the headline in search results.");
+    else if (tl < 30)
+      add("warn", "Title is short (" + tl + " characters). Aim for 30–60.");
+    else if (tl > 60)
+      add(
+        "warn",
+        "Title is long (" + tl + "/60): search engines will cut it off.",
+      );
+
+    const dl = (f.desc || "").length;
+    if (dl === 0)
+      add(
+        "warn",
+        "Add a meta description: it is the text under the title in search results.",
+      );
+    else if (dl < 70)
+      add(
+        "warn",
+        "Description is short (" + dl + " characters). Aim for 70–160.",
+      );
+    else if (dl > 160)
+      add("warn", "Description is long (" + dl + "/160): it will be cut off.");
+    if (f.title && f.desc && f.title.trim() === f.desc.trim()) {
+      add(
+        "warn",
+        "Title and description are identical. Say something different in each.",
+      );
+    }
+
+    if (f.canonical && !/^https?:\/\//i.test(f.canonical)) {
+      add(
+        "warn",
+        "The canonical URL should be a full address starting with https://.",
+      );
+    }
+    if (f.ogImage && !/^https?:\/\//i.test(f.ogImage)) {
+      add(
+        "warn",
+        "The share image must be a full https:// URL, or social networks will not show it.",
+      );
+    } else if (!f.ogImage) {
+      add(
+        "tip",
+        "No share image: links to this page will appear without a picture.",
+      );
+    }
+
+    if (f.noindex)
+      add("warn", "This page is hidden from search engines (noindex).");
+
+    if (!f.lang) add("warn", "Set the page language (for example en or nl).");
+    else if (!/^[a-z]{2,3}(-[A-Za-z0-9]+)*$/.test(f.lang)) {
+      add(
+        "warn",
+        'The language code "' +
+          f.lang +
+          '" looks wrong. Use something like en or nl-BE.',
+      );
+    }
+
+    if (facts) {
+      if (facts.h1 === 0) add("warn", "The page has no H1 heading.");
+      else if (facts.h1 > 1)
+        add("warn", "The page has " + facts.h1 + " H1 headings. Use one.");
+      if (facts.imgsMissingAlt > 0) {
+        add(
+          "warn",
+          facts.imgsMissingAlt + " image(s) on the page have no alt text.",
+        );
+      }
+    }
+
+    if (
+      notes.every(function (n) {
+        return n.level === "tip";
+      })
+    ) {
+      notes.unshift({
+        level: "ok",
+        text: "Looks good: nothing important to fix.",
+      });
+    }
+    return notes;
+  },
+
   /** Rough readability: average words per sentence (lower is easier). */
   readabilityScore: function (text) {
     const clean = text.replace(/\s+/g, " ").trim();
@@ -154,11 +253,7 @@ window.Igor = {
     }
 
     frag.appendChild(
-      badge(
-        stats.words + " words",
-        "igor-ok",
-        "~" + stats.time + " min read",
-      ),
+      badge(stats.words + " words", "igor-ok", "~" + stats.time + " min read"),
     );
 
     if (stats.readability) {

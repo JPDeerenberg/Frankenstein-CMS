@@ -13,16 +13,26 @@
  * sites.json format:
  * {
  *   "user@site1.com": {
- *      "password": "your-password",
- *      "github_token": "ghp_your_token"
+ *      "password": "your-password",          // or a password_hash() value ($2y$… / $argon2id$…)
+ *      "github_token": "ghp_your_token",
+ *      "github_owner": "your-github-user",   // recommended: this client can only reach this repo
+ *      "github_repo": "your-repo"
  *   }
  * }
+ *
+ * Only the GitHub endpoints the CMS needs are proxied (repo info, contents,
+ * commits, git trees/blobs) - never the rest of the API. Set the environment
+ * variable FRANKENSTEIN_ALLOWED_ORIGIN to your CMS origin to restrict CORS.
  */
 
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, HEAD, POST, OPTIONS, PUT, DELETE, PATCH");
+$allowedOrigin = getenv('FRANKENSTEIN_ALLOWED_ORIGIN') ?: '*';
+header("Access-Control-Allow-Origin: $allowedOrigin");
+if ($allowedOrigin !== '*') {
+    header("Vary: Origin");
+}
+header("Access-Control-Allow-Methods: GET, HEAD, PUT, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Site-Email, Site-Password, Site-Session, Accept");
-header("Access-Control-Expose-Headers: X-Session-Token");
+header("Access-Control-Expose-Headers: X-Session-Token, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
@@ -74,6 +84,44 @@ function make_session_token($email, $password, $ttl = 28800) {
     return $payload . '.' . $sig;
 }
 
+// BOUNCER-GUARD-START
+/**
+ * Whitelist of GitHub requests the CMS may make through this bouncer.
+ * Mirrors isAllowedGithubRequest() in bouncer-node.js and the Supabase
+ * function (tests/bouncer.test.js keeps the three in sync).
+ */
+function github_request_allowed($method, $rawPath, $owner = null, $repo = null) {
+    $method = strtoupper($method);
+    if (preg_match('/[\x00-\x20\\\\]/', $rawPath)) return false;
+    $parts = explode('?', $rawPath, 2);
+    $pathname = $parts[0];
+    if ($pathname === '' || $pathname[0] !== '/') $pathname = '/' . $pathname;
+    $segments = array_values(array_filter(explode('/', $pathname), function ($s) { return $s !== ''; }));
+    foreach ($segments as $s) {
+        $d = rawurldecode($s);
+        if ($d === '.' || $d === '..' || strpos($d, '/') !== false || strpos($d, '\\') !== false) return false;
+    }
+    if (count($segments) < 3 || $segments[0] !== 'repos') return false;
+    if ($owner !== null && $owner !== '' && strcasecmp(rawurldecode($segments[1]), $owner) !== 0) return false;
+    if ($repo !== null && $repo !== '' && strcasecmp(rawurldecode($segments[2]), $repo) !== 0) return false;
+    $readOnly = ($method === 'GET' || $method === 'HEAD');
+    if (count($segments) === 3) return $readOnly;
+    switch ($segments[3]) {
+        case 'contents': return $readOnly || $method === 'PUT';
+        case 'commits': return $readOnly;
+        case 'git': return $readOnly && isset($segments[4]) && in_array($segments[4], array('blobs', 'trees'), true);
+        default: return false;
+    }
+}
+// BOUNCER-GUARD-END
+
+function password_matches($stored, $given) {
+    if (preg_match('/^\$(2y|2a|argon2id|argon2i)\$/', $stored)) {
+        return password_verify($given, $stored);
+    }
+    return hash_equals($stored, $given);
+}
+
 function verify_session_token($token, $email, $password) {
     $parts = explode('.', $token);
     if (count($parts) !== 3) return false;
@@ -88,7 +136,7 @@ function verify_session_token($token, $email, $password) {
 }
 
 $validSession = !empty($session) && verify_session_token($session, $email, $sitePassword);
-$validPassword = !empty($password) && hash_equals($sitePassword, $password);
+$validPassword = !empty($password) && password_matches($sitePassword, $password);
 
 if ($siteExists && $validSession) {
     $authenticated = true;
@@ -109,17 +157,36 @@ if ($issueSession) {
 $token = $sites[$email]['github_token'];
 
 $path = $_GET['path'] ?? '/';
+
+if (!github_request_allowed(
+    $_SERVER['REQUEST_METHOD'],
+    $path,
+    $siteConfig['github_owner'] ?? null,
+    $siteConfig['github_repo'] ?? null
+)) {
+    http_response_code(403);
+    header('Content-Type: application/json');
+    echo json_encode(['message' => 'Bouncer: this request is not allowed.']);
+    exit;
+}
+
 $url = "https://api.github.com" . (str_starts_with($path, '/') ? $path : "/$path");
 
 $ch = curl_init($url);
 
+// One Accept header only: a second one made GitHub return JSON instead of the
+// raw file the CMS asked for (CSS / images in the editor preview).
+$accept = (isset($_SERVER['HTTP_ACCEPT']) && $_SERVER['HTTP_ACCEPT'] !== '')
+    ? $_SERVER['HTTP_ACCEPT']
+    : 'application/vnd.github+json';
+
 $headers = [
     "Authorization: Bearer $token",
-    "Accept: application/vnd.github.v3+json",
+    "Accept: $accept",
     "User-Agent: Frankenstein-CMS-PHP-Bouncer"
 ];
 
-$forwardHeaders = ['Content-Type', 'Accept'];
+$forwardHeaders = ['Content-Type'];
 foreach ($forwardHeaders as $h) {
     $headerName = 'HTTP_' . strtoupper(str_replace('-', '_', $h));
     if (isset($_SERVER[$headerName])) {
@@ -131,6 +198,7 @@ curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 curl_setopt($ch, CURLOPT_HEADER, true);
+curl_setopt($ch, CURLOPT_TIMEOUT, 30);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET' && $_SERVER['REQUEST_METHOD'] !== 'HEAD') {
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $_SERVER['REQUEST_METHOD']);
@@ -158,7 +226,9 @@ $response = substr($raw, $headerSize);
 http_response_code($httpCode);
 
 foreach (explode("\r\n", $respHeaders) as $line) {
-    if (stripos($line, 'Content-Type:') === 0 || stripos($line, 'Content-Length:') === 0) {
+    if (stripos($line, 'Content-Type:') === 0 || stripos($line, 'Content-Length:') === 0
+        || stripos($line, 'X-RateLimit-Remaining:') === 0 || stripos($line, 'X-RateLimit-Reset:') === 0
+        || stripos($line, 'Retry-After:') === 0) {
         header($line);
     }
 }

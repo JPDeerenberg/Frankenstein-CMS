@@ -11,11 +11,69 @@ function getUrlConfig() {
   };
 }
 
+/**
+ * Log in against ONE bouncer.
+ * 1. Ask it which site this login belongs to (`?action=site`): the Cloudflare
+ *    bouncer answers with owner/repo/name, so the CMS needs no per-site config.
+ * 2. Older bouncers (PHP/Supabase/Node) do not know that action; if owner and
+ *    repo are configured, test the connection with a plain repo request instead.
+ * Never throws: network problems come back as { ok: false, status: 0 }.
+ */
+async function loginToBouncer(base, email, password, owner, repo) {
+  const headers = { "Site-Email": email, "Site-Password": password };
+  try {
+    const res = await fetch(`${base}?action=site`, { headers });
+    if (res.status === 401) return { ok: false, status: 401, res };
+    if (res.ok) {
+      let site = null;
+      try {
+        site = await res.json();
+      } catch (_) {}
+      if (site && site.owner && site.repo) {
+        return {
+          ok: true,
+          status: 200,
+          res,
+          owner: site.owner,
+          repo: site.repo,
+          name: site.name || "",
+        };
+      }
+    }
+    // not supported by this bouncer: fall back to the classic check
+    if (!owner || !repo) {
+      return {
+        ok: false,
+        status: res.status,
+        res,
+        message:
+          "This bouncer does not tell the CMS which repo to use. Set owner and repo in frankenstein.config.json.",
+      };
+    }
+    const testPath = `/repos/${owner}/${repo}`;
+    const legacy = await fetch(`${base}?path=${encodeURIComponent(testPath)}`, {
+      headers,
+    });
+    return {
+      ok: legacy.ok,
+      status: legacy.status,
+      res: legacy,
+      owner,
+      repo,
+      name: "",
+    };
+  } catch (e) {
+    console.warn("Bouncer unreachable:", base, e);
+    return { ok: false, status: 0, res: null };
+  }
+}
+
 async function saveConfigAndLogin() {
   const email = document.getElementById("cfg-email").value.trim();
   const password = document.getElementById("cfg-password").value.trim();
 
-  // These are now populated by tryAutoFillConfig (hidden fields)
+  // Populated by tryAutoFillConfig (hidden fields). owner/repo are optional
+  // now: bouncers that support ?action=site provide them after login.
   let owner = document.getElementById("cfg-owner").value.trim();
   let repo = document.getElementById("cfg-repo").value.trim();
   let bouncerUrl = document.getElementById("cfg-bouncer").value.trim();
@@ -27,15 +85,14 @@ async function saveConfigAndLogin() {
     return alert("Please enter your Client Email and Site Password.");
   }
 
-  if (!owner || !repo || !bouncerUrl) {
-    // Try to fill missing values from URL parameters as a fallback
+  if (!bouncerUrl) {
     const urlCfg = getUrlConfig();
     if (!owner && urlCfg.owner) owner = urlCfg.owner;
     if (!repo && urlCfg.repo) repo = urlCfg.repo;
-    if (!bouncerUrl && urlCfg.bouncer) bouncerUrl = urlCfg.bouncer;
-    if (!owner || !repo || !bouncerUrl) {
+    bouncerUrl = urlCfg.bouncer;
+    if (!bouncerUrl) {
       return alert(
-        "System Error: The Bouncer is not properly configured. Provide owner, repo, and bouncer URL via hidden fields or URL parameters.",
+        "System Error: The Bouncer is not configured. Set bouncerUrl in frankenstein.config.json (or pass ?bouncer=… in the URL).",
       );
     }
   }
@@ -44,57 +101,48 @@ async function saveConfigAndLogin() {
   loginMsg.innerText = "Authenticating...";
 
   try {
-    // We test the connection by fetching repo details via the proxy
-    const testPath = `/repos/${owner}/${repo}`;
+    let usedUrl = bouncerUrl;
+    let result = await loginToBouncer(bouncerUrl, email, password, owner, repo);
 
-    let res;
-    try {
-      res = await fetch(`${bouncerUrl}?path=${encodeURIComponent(testPath)}`, {
-        method: "GET",
-        headers: {
-          "Site-Password": password,
-          "Site-Email": email,
-        },
-      });
-    } catch (e) {
-      console.warn("Primary bouncer failed, trying backup...", e);
-    }
-
-    // Fallback to backup if primary failed or returned error
-    if ((!res || !res.ok) && backupBouncerUrl) {
-      console.log("Switching to backup bouncer...");
+    // Primary unreachable or broken (not a wrong password): try the backup
+    if (!result.ok && result.status !== 401 && backupBouncerUrl) {
       loginMsg.innerText = "Primary failed. Trying backup...";
-      try {
-        res = await fetch(
-          `${backupBouncerUrl}?path=${encodeURIComponent(testPath)}`,
-          {
-            method: "GET",
-            headers: {
-              "Site-Password": password,
-              "Site-Email": email,
-            },
-          },
-        );
-        if (res.ok) {
-          bouncerUrl = backupBouncerUrl;
-          console.log("Fallback successful.");
-        }
-      } catch (e) {
-        console.error("Backup bouncer also failed.", e);
+      const backup = await loginToBouncer(
+        backupBouncerUrl,
+        email,
+        password,
+        owner,
+        repo,
+      );
+      if (backup.ok || backup.status === 401) {
+        result = backup;
+        usedUrl = backupBouncerUrl;
       }
     }
 
-    if (!res || !res.ok) {
-      if (res && res.status === 401) {
-        loginMsg.innerText = "❌ Incorrect password.";
+    if (!result.ok) {
+      if (result.status === 401) {
+        loginMsg.innerText = "❌ Incorrect email or password.";
         return;
       }
-      let detail = res
-        ? ` (status ${res.status})`
-        : " (Network error or CORS issue)";
-      if (res) {
+      if (result.message) {
+        loginMsg.innerText = "❌ " + result.message;
+        return;
+      }
+      if (result.status === 403) {
+        let why = "";
         try {
-          const body = await res.json();
+          why = (await result.res.json()).message || "";
+        } catch (_) {}
+        loginMsg.innerText = "❌ Request refused by the Bouncer. " + why;
+        return;
+      }
+      let detail = result.res
+        ? ` (status ${result.status})`
+        : " (Network error or CORS issue)";
+      if (result.res) {
+        try {
+          const body = await result.res.json();
           detail = body.message ? `: ${body.message}` : detail;
         } catch (_) {}
       }
@@ -102,10 +150,23 @@ async function saveConfigAndLogin() {
       return;
     }
 
-    config = { bouncerUrl, owner, repo, email };
-    await encryptConfig(config, password);
-    config.password = password; // Retain in memory for Bouncer auth
-    loginMsg.innerText = "Connected.";
+    config = {
+      bouncerUrl: usedUrl,
+      backupBouncerUrl,
+      owner: result.owner,
+      repo: result.repo,
+      siteName: result.name,
+      email,
+    };
+    config.password = password; // kept in memory only, used for Bouncer auth
+    const issued = result.res.headers.get("X-Session-Token");
+    if (issued) config.sessionToken = issued;
+    try {
+      localStorage.setItem("frankenstein_email", email); // prefill next time
+    } catch (_) {}
+    loginMsg.innerText = result.name
+      ? `Connected: ${result.name}`
+      : "Connected.";
     showDashboard();
   } catch (e) {
     loginMsg.innerText = `Network error: ${e.message}`;
@@ -115,7 +176,7 @@ async function saveConfigAndLogin() {
 
 function logout() {
   if (confirm("Logout?")) {
-    localStorage.removeItem("frankenstein_encrypted_cfg");
+    localStorage.removeItem("frankenstein_encrypted_cfg"); // legacy
     location.reload();
   }
 }
@@ -135,19 +196,19 @@ window.onload = async () => {
     applyExternalConfig(urlConfig);
   }
 
-  const hasData = localStorage.getItem("frankenstein_encrypted_cfg");
-  if (hasData) {
-    const password = prompt("🔐 Session password:");
-    if (!password) return;
-    const decrypted = await decryptConfig(password);
-    if (decrypted) {
-      config = decrypted;
-      config.password = password; // Retain in memory for Bouncer auth
-      showDashboard();
-    } else {
-      alert("❌ Wrong password.");
+  // Sessions are no longer restored through a blocking prompt() (browsers
+  // suppress it inside iframes, and it cannot use the password manager).
+  // The email is remembered; the password is entered in the normal form.
+  localStorage.removeItem("frankenstein_encrypted_cfg"); // legacy
+  try {
+    const savedEmail = localStorage.getItem("frankenstein_email");
+    const emailInput = document.getElementById("cfg-email");
+    if (savedEmail && emailInput && !emailInput.value) {
+      emailInput.value = savedEmail;
+      const pw = document.getElementById("cfg-password");
+      if (pw) pw.focus();
     }
-  }
+  } catch (_) {}
 };
 
 async function tryAutoFillConfig() {
@@ -165,7 +226,7 @@ async function tryAutoFillConfig() {
           data.backupBouncerUrl;
 
       // Hide all configuration fields if bouncer is fully configured
-      if (data.owner && data.repo && data.bouncerUrl) {
+      if (data.bouncerUrl) {
         hideConfigFields();
       }
     }
@@ -190,10 +251,7 @@ function applyExternalConfig(cfg) {
       cfg.backupBouncerUrl || cfg.backupBouncer;
 
   // Logic to hide fields if required info is present
-  const owner = document.getElementById("cfg-owner").value;
-  const repo = document.getElementById("cfg-repo").value;
-  const bouncer = document.getElementById("cfg-bouncer").value;
-  if (owner && repo && bouncer) {
+  if (document.getElementById("cfg-bouncer").value) {
     hideConfigFields();
   }
 }

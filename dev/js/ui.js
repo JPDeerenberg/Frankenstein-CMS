@@ -12,6 +12,14 @@ function formatTime(d) {
   return hh + ":" + mm + ":" + ss;
 }
 
+/** Update the status text next to the save button. */
+function setStatus(text, color) {
+  const el = document.getElementById("save-status");
+  if (!el) return;
+  el.innerText = text;
+  el.style.color = color || "#94a3b8";
+}
+
 function setUnsaved() {
   if (isDirty) return;
   isDirty = true;
@@ -51,6 +59,19 @@ function showDashboard() {
 }
 
 function initFeatureUi() {
+  // Warn before closing the tab with unsaved edits
+  if (
+    typeof window !== "undefined" &&
+    typeof window.addEventListener === "function"
+  ) {
+    window.addEventListener("beforeunload", function (e) {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    });
+  }
+
   // Restore last commit message
   const commitInput = document.getElementById("commit-msg");
   if (commitInput) {

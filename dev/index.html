@@ -2,9 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <meta name="theme-color" content="#0f172a" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Frankenstein" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Frankenstein CMS</title>
 
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.quilljs.com https://cdnjs.cloudflare.com 'unsafe-inline'; style-src 'self' https://cdn.quilljs.com https://cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://api.github.com https://cdn.jsdelivr.net https://cdn.quilljs.com https://*.supabase.co; font-src 'self' data:; frame-ancestors 'none';" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.quilljs.com https://cdnjs.cloudflare.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; font-src 'self' data: https:; object-src 'none'; base-uri 'none'; form-action 'none';" />
 
     <link
       rel="stylesheet"
@@ -24,8 +36,12 @@
       crossorigin="anonymous"></script>
 
     <script src="js/config.js" defer></script>
+    <script src="js/api.js" defer></script>
     <script src="js/utils.js" defer></script>
+    <script src="js/doc.js" defer></script>
+    <script src="js/blocks.js" defer></script>
     <script src="js/ui.js" defer></script>
+    <script src="js/pwa.js" defer></script>
     <script src="js/editor.js" defer></script>
     <script src="js/auth.js" defer></script>
     <script src="js/files.js" defer></script>
@@ -54,15 +70,16 @@
   </head>
   <body>
     <div id="telepathic-menu">
-      <button onmousedown="fmt('bold')" title="Bold">B</button>
-      <button onmousedown="fmt('italic')" title="Italic">I</button>
-      <button onmousedown="fmt('underline')" title="Underline">U</button>
+      <button onmousedown="event.preventDefault(); fmt('bold')" title="Bold">B</button>
+      <button onmousedown="event.preventDefault(); fmt('italic')" title="Italic">I</button>
+      <button onmousedown="event.preventDefault(); fmt('underline')" title="Underline">U</button>
       <div class="divider"></div>
-      <button onmousedown="fmt('header', 2)" title="Heading 2">H2</button>
-      <button onmousedown="fmt('header', 3)" title="Heading 3">H3</button>
+      <button class="block-only" onmousedown="event.preventDefault(); fmt('header', false)" title="Paragraph">P</button>
+      <button class="block-only" onmousedown="event.preventDefault(); fmt('header', 2)" title="Heading 2">H2</button>
+      <button class="block-only" onmousedown="event.preventDefault(); fmt('header', 3)" title="Heading 3">H3</button>
       <div class="divider"></div>
-      <button onmousedown="askLink()" title="Link">🔗</button>
-      <button onmousedown="fmt('link', false)" title="Unlink">❌</button>
+      <button onmousedown="event.preventDefault(); askLink()" title="Link">🔗</button>
+      <button onmousedown="event.preventDefault(); fmt('link', false)" title="Unlink">❌</button>
     </div>
 
     <div id="login-screen" class="screen active">
@@ -100,6 +117,11 @@
     </div>
 
     <div id="dashboard-screen" class="screen">
+      <div class="mobile-bar">
+        <button type="button" class="mobile-menu-btn" onclick="toggleSidebar()" aria-label="Open menu">☰</button>
+        <strong>Frankenstein</strong>
+      </div>
+      <div class="sidebar-backdrop" onclick="closeSidebar()"></div>
       <div class="sidebar">
         <h3 style="margin-top: 0">🗂 Files</h3>
         <button onclick="fetchFileList()">🔄 Refresh</button>
@@ -133,6 +155,14 @@
             title="Preview at 375px width"
           >
             📱 Mobile preview
+          </button>
+          <button
+            class="action"
+            onclick="openBlocksModal()"
+            style="width: 100%; text-align: left; background: #1e293b; border: 1px solid #334155;"
+            title="Insert a ready-made section (hero, columns, quote …)"
+          >
+            ➕ Insert block
           </button>
           <button
             class="action"
@@ -172,6 +202,15 @@
           <strong>💡 Tip:</strong><br />
           Select text in a red box. The menu appears instantly.
         </div>
+        <button
+          class="action"
+          id="btn-install"
+          onclick="installApp()"
+          style="display: none; width: 100%; text-align: left; background: #1e293b; border: 1px solid #334155; margin-top: 12px"
+          title="Add Frankenstein to your home screen"
+        >
+          📲 Install app
+        </button>
         <button class="danger" onclick="logout()">🚪 Logout</button>
       </div>
 
@@ -236,17 +275,75 @@
       </div>
     </div>
 
+    <div id="blocks-modal" class="feature-modal">
+      <div class="login-box" style="max-width: 580px; max-height: 85vh; overflow: auto;">
+        <h3>➕ Insert block</h3>
+        <div id="blocks-list-view">
+          <label for="blocks-position">Where should it go?</label>
+          <select id="blocks-position">
+            <option value="after">After the text block I last clicked</option>
+            <option value="end">At the end of the page</option>
+          </select>
+          <div id="blocks-grid" class="blocks-grid"></div>
+          <div class="modal-actions">
+            <button class="btn-secondary" onclick="closeBlocksModal()">Close</button>
+          </div>
+        </div>
+        <div id="blocks-form-view" style="display: none">
+          <p id="blocks-form-title" style="font-weight: 600"></p>
+          <div id="blocks-fields"></div>
+          <div class="modal-actions">
+            <button class="btn-secondary" onclick="showBlockList()">Back</button>
+            <button onclick="confirmBlockForm()">Insert</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="seo-modal">
       <div class="login-box">
         <h3>⚙️ Page Settings</h3>
 
+        <div class="seo-preview" aria-label="Search result preview">
+          <div id="seo-prev-title" class="sp-title"></div>
+          <div id="seo-prev-url" class="sp-url"></div>
+          <div id="seo-prev-desc" class="sp-desc"></div>
+        </div>
+
         <label for="seo-title">Page Title</label>
         <input type="text" id="seo-title" placeholder="My great page" />
-        <p class="input-hint">Recommended: max 60 characters.</p>
+        <p class="input-hint" id="seo-title-hint">Recommended: max 60 characters.</p>
 
         <label for="seo-desc">Meta Description</label>
-        <textarea id="seo-desc" rows="4"></textarea>
-        <p class="input-hint">Recommended: max 160 characters.</p>
+        <textarea id="seo-desc" rows="3"></textarea>
+        <p class="input-hint" id="seo-desc-hint">Recommended: max 160 characters.</p>
+
+        <details class="seo-group">
+          <summary>📣 Social sharing</summary>
+          <label for="seo-og-title">Share title</label>
+          <input type="text" id="seo-og-title" placeholder="Leave empty to use the page title" />
+          <label for="seo-og-desc">Share description</label>
+          <textarea id="seo-og-desc" rows="2" placeholder="Leave empty to use the meta description"></textarea>
+          <label for="seo-og-image">Share image (full https:// URL)</label>
+          <input type="url" id="seo-og-image" placeholder="https://example.com/img/share.jpg" />
+        </details>
+
+        <details class="seo-group">
+          <summary>🔧 Advanced</summary>
+          <label for="seo-canonical">Canonical URL</label>
+          <input type="url" id="seo-canonical" placeholder="https://example.com/this-page.html" />
+          <label for="seo-lang">Page language</label>
+          <input type="text" id="seo-lang" placeholder="en" maxlength="12" />
+          <label class="seo-check" for="seo-noindex">
+            <input type="checkbox" id="seo-noindex" />
+            Hide this page from search engines
+          </label>
+        </details>
+
+        <div class="seo-igor-box">
+          <strong>🧟 Igor says</strong>
+          <ul id="seo-igor"></ul>
+        </div>
 
         <div class="modal-actions">
           <button class="btn-secondary" onclick="SEO.closeModal()">

@@ -1,13 +1,18 @@
 // Utility functions for encoding, decoding, and general helpers
 
-function base64ToUtf8(b64) {
+/**
+ * Decode base64 to a UTF-8 string. Returns null on failure.
+ * With `fatal` set, invalid UTF-8 also returns null instead of silently
+ * inserting U+FFFD (which would corrupt the file on the next save).
+ */
+function base64ToUtf8(b64, fatal) {
   try {
     const binary = atob(b64);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {
       bytes[i] = binary.charCodeAt(i);
     }
-    const dec = new TextDecoder();
+    const dec = new TextDecoder("utf-8", { fatal: !!fatal });
     return dec.decode(bytes);
   } catch (e) {
     return null;
@@ -48,6 +53,112 @@ function arrayBufferToBase64(buffer) {
     binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
   }
   return btoa(binary);
+}
+
+/** Escape text for safe use inside HTML. */
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+/** Percent-encode every segment of a repo path (spaces, #, ?, unicode…). */
+function encodePath(path) {
+  return String(path || "")
+    .split("/")
+    .filter(function (seg) {
+      return seg.length > 0;
+    })
+    .map(encodeURIComponent)
+    .join("/");
+}
+
+function safeDecode(str) {
+  try {
+    return decodeURIComponent(str);
+  } catch (e) {
+    return str;
+  }
+}
+
+function stripQueryHash(url) {
+  return String(url).split(/[?#]/)[0];
+}
+
+/** Path of `target` relative to the directory `fromDir` (both repo-root based). */
+function relativePath(fromDir, target) {
+  const from = fromDir ? fromDir.split("/").filter(Boolean) : [];
+  const to = String(target).split("/").filter(Boolean);
+  let i = 0;
+  while (i < from.length && i < to.length - 1 && from[i] === to[i]) i++;
+  const up = [];
+  for (let j = i; j < from.length; j++) up.push("..");
+  return up.concat(to.slice(i)).join("/");
+}
+
+const MIME_BY_EXT = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  avif: "image/avif",
+  svg: "image/svg+xml",
+  ico: "image/x-icon",
+  bmp: "image/bmp",
+};
+
+/** GitHub serves some raw files as text/plain; trust the extension for images. */
+function guessMimeType(path, headerType) {
+  const m = /\.([a-z0-9]+)$/i.exec(stripQueryHash(path));
+  const byExt = m ? MIME_BY_EXT[m[1].toLowerCase()] : null;
+  if (byExt) return byExt;
+  return headerType || "application/octet-stream";
+}
+
+/** Rewrite relative url(...) / @import in fetched CSS so it resolves against the file's real URL. */
+function absolutizeCssUrls(css, baseHref) {
+  if (!css || !baseHref) return css;
+  const fix = function (target) {
+    const t = target.trim();
+    if (!t || /^(data:|blob:|#|https?:|\/\/)/i.test(t)) return target;
+    try {
+      return new URL(t, baseHref).href;
+    } catch (e) {
+      return target;
+    }
+  };
+  return css
+    .replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, function (m, q, u) {
+      return "url(" + q + fix(u) + q + ")";
+    })
+    .replace(/@import\s+(['"])([^'"]+)\1/gi, function (m, q, u) {
+      return "@import " + q + fix(u) + q;
+    });
+}
+
+const SKIP_DIRS = new Set([
+  ".git",
+  "node_modules",
+  ".github",
+  "dist",
+  "build",
+  ".next",
+  "vendor",
+  "prod",
+  "dev",
+]);
+
+/** True when any directory in the path is one the file list should hide. */
+function isSkippedPath(path) {
+  const parts = String(path).split("/");
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (SKIP_DIRS.has(parts[i])) return true;
+  }
+  return false;
 }
 
 function resolvePath(base, rel) {
@@ -143,20 +254,8 @@ async function listHtmlFilesRecursive(fetchFn, path, depth, maxDepth) {
   depth = depth || 0;
   maxDepth = typeof maxDepth === "number" ? maxDepth : 4;
 
-  const skipDirs = new Set([
-    ".git",
-    "node_modules",
-    ".github",
-    "dist",
-    "build",
-    ".next",
-    "vendor",
-    "prod",
-    "dev",
-  ]);
-
   const apiPath = path
-    ? `/repos/${config.owner}/${config.repo}/contents/${path}`
+    ? `/repos/${config.owner}/${config.repo}/contents/${encodePath(path)}`
     : `/repos/${config.owner}/${config.repo}/contents/`;
 
   const res = await fetchFn(apiPath);
@@ -174,7 +273,7 @@ async function listHtmlFilesRecursive(fetchFn, path, depth, maxDepth) {
     if (item.type === "file" && /\.html?$/i.test(item.name)) {
       files.push({ name: item.path, path: item.path });
     } else if (item.type === "dir" && depth < maxDepth) {
-      if (skipDirs.has(item.name)) continue;
+      if (SKIP_DIRS.has(item.name)) continue;
       const nested = await listHtmlFilesRecursive(
         fetchFn,
         item.path,
@@ -220,16 +319,26 @@ function collectStylesheetPromises(opts) {
         let css = null;
 
         if (isExternal) {
-          // Policy: try direct fetch (many CDNs allow CORS). Fail soft.
+          // Try a direct fetch so body/html rules can be scoped; if the CDN
+          // blocks CORS (or CSP), fall back to a plain <link> in the preview.
           try {
             const r = await fetchWithRetry(href, { mode: "cors" });
-            if (r.ok) css = await r.text();
+            if (r.ok) css = absolutizeCssUrls(await r.text(), href);
           } catch (e) {
-            console.warn("External stylesheet blocked or failed:", href, e);
+            css = null;
+          }
+          if (!css) {
+            const link = document.createElement("link");
+            link.rel = "stylesheet";
+            link.href = href;
+            shadow.appendChild(link);
             return;
           }
         } else {
-          const resolvedHref = resolvePath(currentDir, href);
+          const resolvedHref = resolvePath(
+            currentDir,
+            safeDecode(stripQueryHash(href)),
+          );
           if (resourceCache.has(resolvedHref)) {
             css = await resourceCache.get(resolvedHref);
           } else {
@@ -278,10 +387,13 @@ function collectImagePromises(opts) {
   const imgs = pageWrapper.querySelectorAll("img");
   imgs.forEach(function (img) {
     const src = img.getAttribute("src");
-    if (!src || /^https?:\/\//i.test(src)) return;
+    if (!src || /^(https?:|data:|blob:|\/\/)/i.test(src)) return;
     img.setAttribute("data-original-src", src);
 
-    const resolvedSrc = resolvePath(currentDir, src);
+    const resolvedSrc = resolvePath(
+      currentDir,
+      safeDecode(stripQueryHash(src)),
+    );
     const p = (async function () {
       try {
         if (resourceCache.has(resolvedSrc)) {
@@ -315,17 +427,23 @@ function collectImagePromises(opts) {
 }
 
 /**
- * Inject scoped <style> tags from a source document into the shadow root.
+ * Add scoped copies of the page's <style> tags to the preview.
+ * The originals are left untouched on purpose: body/html selectors are
+ * rewritten only in the copies, so they can never leak into a saved file.
  */
 function injectScopedInlineStyles(doc, shadow, pageWrapper) {
+  const sources = [];
   doc.head.querySelectorAll("style").forEach(function (s) {
-    const newStyle = document.createElement("style");
-    newStyle.textContent = scopeCssToCms(s.textContent);
-    shadow.appendChild(newStyle);
+    sources.push(s.textContent);
   });
   if (pageWrapper) {
     pageWrapper.querySelectorAll("style").forEach(function (s) {
-      s.textContent = scopeCssToCms(s.textContent);
+      sources.push(s.textContent);
     });
   }
+  sources.forEach(function (css) {
+    const copy = document.createElement("style");
+    copy.textContent = scopeCssToCms(css);
+    shadow.appendChild(copy);
+  });
 }

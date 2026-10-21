@@ -4,3 +4,9 @@
 !.dev.vars.example
 .env*
 !.env.example
+
+# dependencies & local secrets
+node_modules/
+.DS_Store
+sites.json
+clients.json

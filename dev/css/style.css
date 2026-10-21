@@ -204,7 +204,7 @@ body {
 }
 
 #telepathic-menu {
-  position: absolute;
+  position: fixed;
   z-index: 99999;
   background: #222;
   padding: 8px 12px;
@@ -241,6 +241,11 @@ body {
   background: rgba(255, 255, 255, 0.2);
   color: #62c4ff;
   border-radius: 4px;
+}
+/* headings only make sense inside block containers (not inside an <h1>, <p>, <li> …) */
+#telepathic-menu[data-mode="inline"] .block-only,
+#telepathic-menu[data-mode="list"] .block-only {
+  display: none;
 }
 #telepathic-menu .divider {
   display: inline-block;
@@ -394,4 +399,267 @@ button.btn-secondary:hover {
   height: 12px;
   background: #cbd5e1;
   margin: 0 4px;
+}
+
+/* ---- Page settings (SEO) ---- */
+#seo-modal .login-box {
+  max-height: 90vh;
+  max-height: 90dvh;
+  overflow-y: auto;
+}
+.seo-preview {
+  background: #fff;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  font-family: Arial, sans-serif;
+  overflow: hidden;
+}
+.seo-preview .sp-title {
+  color: #1a0dab;
+  font-size: 1.1rem;
+  line-height: 1.3;
+}
+.seo-preview .sp-url {
+  color: #006621;
+  font-size: 0.8rem;
+  margin: 2px 0;
+  word-break: break-all;
+}
+.seo-preview .sp-desc {
+  color: #4d5156;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.seo-group {
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin: 0 0 12px;
+}
+.seo-group summary {
+  cursor: pointer;
+  color: #cbd5e1;
+  padding: 6px 0;
+}
+.seo-group[open] summary {
+  margin-bottom: 8px;
+}
+#seo-modal .seo-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: #cbd5e1;
+}
+#seo-modal .login-box input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  padding: 0;
+}
+.seo-igor-box {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  color: #e2e8f0;
+  font-size: 0.85rem;
+}
+.seo-igor-box ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.igor-note {
+  padding: 4px 0 4px 22px;
+  position: relative;
+}
+.igor-note::before {
+  position: absolute;
+  left: 0;
+}
+.igor-note.igor-ok::before { content: "✅"; }
+.igor-note.igor-warn::before { content: "⚠️"; }
+.igor-note.igor-err::before { content: "❌"; }
+.igor-note.igor-tip::before { content: "💡"; }
+
+/* ---- Insert block dialog ---- */
+.blocks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+.block-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  padding: 12px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  color: #e2e8f0;
+  cursor: pointer;
+  min-height: 44px;
+}
+.block-card:hover,
+.block-card:focus-visible {
+  border-color: #6366f1;
+  background: #273449;
+}
+.block-card .bc-icon {
+  font-size: 1.4rem;
+}
+.block-card small {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+#blocks-modal select {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid #334155;
+  color: #fff;
+  font-size: 1rem;
+}
+#blocks-fields label {
+  display: block;
+  margin-bottom: 12px;
+}
+
+/* ---- Phone / tablet layout & installed-app polish ---- */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+button,
+a,
+select,
+summary {
+  touch-action: manipulation;
+}
+.mobile-bar,
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  body {
+    height: 100vh;
+    height: 100dvh;
+  }
+  #dashboard-screen {
+    flex-direction: column;
+  }
+  .mobile-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px;
+    background: #0f172a;
+    border-bottom: 1px solid #1e293b;
+    color: #e2e8f0;
+  }
+  .mobile-bar .mobile-menu-btn {
+    width: 44px;
+    height: 44px;
+    margin: 0;
+    padding: 0;
+    font-size: 1.4rem;
+    line-height: 1;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    color: #e2e8f0;
+  }
+
+  /* the file list becomes a slide-in drawer */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 9000;
+    width: min(86vw, 320px);
+    box-sizing: border-box;
+    padding-top: calc(20px + env(safe-area-inset-top, 0px));
+    transform: translateX(-105%);
+    transition: transform 0.2s ease;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+  }
+  body.sidebar-open .sidebar {
+    transform: none;
+  }
+  body.sidebar-open .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 8999;
+    background: rgba(0, 0, 0, 0.55);
+  }
+
+  .main-content {
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+  }
+  .current-file-display {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px;
+  }
+  .current-file-display > div {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  #commit-msg {
+    flex: 1 1 100%;
+    margin-left: 0 !important;
+    box-sizing: border-box;
+  }
+  #btn-mobile-preview {
+    display: none; /* the screen already is a phone */
+  }
+
+  /* 16px inputs stop iOS from zooming in on focus; 44px targets are easy to hit */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+  button {
+    min-height: 44px;
+  }
+  .login-box {
+    max-width: 100%;
+  }
+  #seo-modal .login-box,
+  #blocks-modal .login-box {
+    width: 94%;
+    box-sizing: border-box;
+    padding: 18px;
+  }
+}
+
+/* Touch screens: the native cut/copy/paste bubble sits above the selection, so our
+   formatting bar docks to the bottom edge instead of floating over it. */
+@media (pointer: coarse) {
+  #telepathic-menu {
+    top: auto !important;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    left: 50% !important;
+    max-width: 96vw;
+    overflow-x: auto;
+  }
+  #telepathic-menu::after {
+    display: none;
+  }
+  #telepathic-menu button {
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
