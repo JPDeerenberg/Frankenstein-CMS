@@ -51,7 +51,7 @@ Perfect for personal projects or developers who want to manage their own sites. 
 **Setup (`dev/`):**
 
 1. Add `data-editable` attributes to your HTML.
-2. Generate a [GitHub Personal Access Token](https://github.com/settings/tokens/new?scopes=repo&description=Frankenstein%20CMS).
+2. Create a **fine-grained** [GitHub token](https://github.com/settings/personal-access-tokens/new): *Only select repositories* → your one repo → *Contents: Read and write*. Avoid the classic `repo`-scope token: it can reach every repository you own. (See [SECURITY.md](SECURITY.md).)
 3. Open `dev/index.html` (or your iframe/URL link) and enter your Token. The repo details will pre-fill if you used Method B or C.
 
 ### 2. The `prod/` Version (For Agencies & Clients)
@@ -92,6 +92,8 @@ Perfect if you build websites for clients. It uses a **Serverless Bouncer** (Sup
 ---
 
 ## 🔐 Security model (prod bouncer)
+
+See **[SECURITY.md](SECURITY.md)** for the full picture: how the CMS protects tokens, what you must configure (fine-grained tokens, rate limiting, where the sites file lives), what was fixed, and the risks that remain.
 
 The **bouncer** holds GitHub tokens server-side. Clients never see the token.
 

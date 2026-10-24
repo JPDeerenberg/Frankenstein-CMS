@@ -16,7 +16,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Frankenstein CMS</title>
 
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; font-src 'self' data: https:; object-src 'none'; base-uri 'none'; form-action 'none';" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; connect-src 'self' https://api.github.com; font-src 'self' data: https:; object-src 'none'; base-uri 'none'; form-action 'none';" />
 
     <link
       rel="stylesheet"
@@ -29,12 +29,14 @@
     <script src="vendor/quill.min.js"></script>
 
     <script src="js/config.js" defer></script>
+    <script src="js/boot.js" defer></script>
     <script src="js/api.js" defer></script>
     <script src="js/utils.js" defer></script>
     <script src="js/doc.js" defer></script>
     <script src="js/blocks.js" defer></script>
     <script src="js/ui.js" defer></script>
     <script src="js/pwa.js" defer></script>
+    <script src="js/actions.js" defer></script>
     <script src="js/editor.js" defer></script>
     <script src="js/auth.js" defer></script>
     <script src="js/files.js" defer></script>
@@ -63,16 +65,16 @@
   </head>
   <body>
     <div id="telepathic-menu">
-      <button onmousedown="event.preventDefault(); fmt('bold')" title="Bold">B</button>
-      <button onmousedown="event.preventDefault(); fmt('italic')" title="Italic">I</button>
-      <button onmousedown="event.preventDefault(); fmt('underline')" title="Underline">U</button>
+      <button data-mousedown="fmt" data-args='["bold"]' title="Bold">B</button>
+      <button data-mousedown="fmt" data-args='["italic"]' title="Italic">I</button>
+      <button data-mousedown="fmt" data-args='["underline"]' title="Underline">U</button>
       <div class="divider"></div>
-      <button class="block-only" onmousedown="event.preventDefault(); fmt('header', false)" title="Paragraph">P</button>
-      <button class="block-only" onmousedown="event.preventDefault(); fmt('header', 2)" title="Heading 2">H2</button>
-      <button class="block-only" onmousedown="event.preventDefault(); fmt('header', 3)" title="Heading 3">H3</button>
+      <button class="block-only" data-mousedown="fmt" data-args='["header",false]' title="Paragraph">P</button>
+      <button class="block-only" data-mousedown="fmt" data-args='["header",2]' title="Heading 2">H2</button>
+      <button class="block-only" data-mousedown="fmt" data-args='["header",3]' title="Heading 3">H3</button>
       <div class="divider"></div>
-      <button onmousedown="event.preventDefault(); askLink()" title="Link">🔗</button>
-      <button onmousedown="event.preventDefault(); fmt('link', false)" title="Unlink">❌</button>
+      <button data-mousedown="askLink" title="Link">🔗</button>
+      <button data-mousedown="fmt" data-args='["link",false]' title="Unlink">❌</button>
     </div>
 
     <div id="login-screen" class="screen active">
@@ -81,6 +83,10 @@
 
         <label>1. GitHub Token</label>
         <input type="password" id="cfg-token" placeholder="github_pat_..." />
+        <p class="input-hint">
+          Use a <strong>fine-grained</strong> token for this one repo with
+          <em>Contents: Read and write</em>. Not a classic <code>repo</code> token.
+        </p>
 
         <label>2. GitHub Username</label>
         <input type="text" id="cfg-owner" placeholder="e.g. Lex-Luthor" />
@@ -92,12 +98,12 @@
           placeholder="e.g. kill-superman-page"
         />
 
-        <button onclick="saveConfigAndLogin()">🔓 Connect</button>
+        <button data-action="saveConfigAndLogin">🔓 Connect</button>
         <div style="text-align: center; margin-top: 15px">
           <span style="color: #64748b; font-size: 0.8rem">OR</span>
         </div>
         <button
-          onclick="startDemo()"
+          data-action="startDemo"
           style="
             background: linear-gradient(135deg, #475569 0%, #1e293b 100%);
             margin-top: 15px;
@@ -111,13 +117,13 @@
 
     <div id="dashboard-screen" class="screen">
       <div class="mobile-bar">
-        <button type="button" class="mobile-menu-btn" onclick="toggleSidebar()" aria-label="Open menu">☰</button>
+        <button type="button" class="mobile-menu-btn" data-action="toggleSidebar" aria-label="Open menu">☰</button>
         <strong>Frankenstein</strong>
       </div>
-      <div class="sidebar-backdrop" onclick="closeSidebar()"></div>
+      <div class="sidebar-backdrop" data-action="closeSidebar"></div>
       <div class="sidebar">
         <h3 style="margin-top: 0">🗂 Files</h3>
-        <button onclick="fetchFileList()">🔄 Refresh</button>
+        <button data-action="fetchFileList">🔄 Refresh</button>
         <ul id="file-list">
           <li style="font-style: italic; opacity: 0.5">Loading...</li>
         </ul>
@@ -128,7 +134,7 @@
           </h3>
           <button
             class="action"
-            onclick="SEO.openModal()"
+            data-action="seo.openModal"
             style="
               width: 100%;
               text-align: left;
@@ -143,7 +149,7 @@
           <button
             class="action"
             id="btn-mobile-preview"
-            onclick="toggleMobilePreview()"
+            data-action="toggleMobilePreview"
             style="width: 100%; text-align: left; background: #1e293b; border: 1px solid #334155;"
             title="Preview at 375px width"
           >
@@ -151,7 +157,7 @@
           </button>
           <button
             class="action"
-            onclick="openBlocksModal()"
+            data-action="openBlocksModal"
             style="width: 100%; text-align: left; background: #1e293b; border: 1px solid #334155;"
             title="Insert a ready-made section (hero, columns, quote …)"
           >
@@ -159,7 +165,7 @@
           </button>
           <button
             class="action"
-            onclick="openHistoryModal()"
+            data-action="openHistoryModal"
             style="width: 100%; text-align: left; background: #1e293b; border: 1px solid #334155;"
             title="View commit history for this file"
           >
@@ -167,7 +173,7 @@
           </button>
           <button
             class="action"
-            onclick="triggerImageUpload()"
+            data-action="triggerImageUpload"
             style="width: 100%; text-align: left; background: #1e293b; border: 1px solid #334155;"
             title="Upload an image to img/ in the repo"
           >
@@ -178,7 +184,7 @@
             id="image-upload-input"
             accept="image/*"
             style="display: none"
-            onchange="handleImageUpload(event)"
+            data-change="handleImageUpload"
           />
         </div>
         </div>
@@ -198,13 +204,13 @@
         <button
           class="action"
           id="btn-install"
-          onclick="installApp()"
+          data-action="installApp"
           style="display: none; width: 100%; text-align: left; background: #1e293b; border: 1px solid #334155; margin-top: 12px"
           title="Add Frankenstein to your home screen"
         >
           📲 Install app
         </button>
-        <button class="danger" onclick="logout()">🚪 Logout</button>
+        <button class="danger" data-action="logout">🚪 Logout</button>
       </div>
 
       <div class="main-content">
@@ -245,7 +251,7 @@
           <button
             id="saveBtn"
             class="action"
-            onclick="slaOp()"
+            data-action="slaOp"
             style="display: none"
           >
             💾 Save & Push
@@ -263,7 +269,7 @@
         </p>
         <ul id="history-list" style="list-style: none; padding: 0; margin: 12px 0;"></ul>
         <div class="modal-actions">
-          <button class="btn-secondary" onclick="closeHistoryModal()">Close</button>
+          <button class="btn-secondary" data-action="closeHistoryModal">Close</button>
         </div>
       </div>
     </div>
@@ -279,15 +285,15 @@
           </select>
           <div id="blocks-grid" class="blocks-grid"></div>
           <div class="modal-actions">
-            <button class="btn-secondary" onclick="closeBlocksModal()">Close</button>
+            <button class="btn-secondary" data-action="closeBlocksModal">Close</button>
           </div>
         </div>
         <div id="blocks-form-view" style="display: none">
           <p id="blocks-form-title" style="font-weight: 600"></p>
           <div id="blocks-fields"></div>
           <div class="modal-actions">
-            <button class="btn-secondary" onclick="showBlockList()">Back</button>
-            <button onclick="confirmBlockForm()">Insert</button>
+            <button class="btn-secondary" data-action="showBlockList">Back</button>
+            <button data-action="confirmBlockForm">Insert</button>
           </div>
         </div>
       </div>
@@ -339,26 +345,13 @@
         </div>
 
         <div class="modal-actions">
-          <button class="btn-secondary" onclick="SEO.closeModal()">
+          <button class="btn-secondary" data-action="seo.closeModal">
             Cancel
           </button>
-          <button onclick="SEO.saveAndClose()">Save in editor</button>
+          <button data-action="seo.saveAndClose">Save in editor</button>
         </div>
       </div>
     </div>
-
-    <script>
-      let autosaveTimer = null;
-      const AUTOSAVE_INTERVAL = 30000;
-    </script>
-  
-    <script>
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", function () {
-          navigator.serviceWorker.register("sw.js").catch(function () {});
-        });
-      }
-    </script>
 
   </body>
 </html>

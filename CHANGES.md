@@ -49,3 +49,13 @@
 - The CMS loaded Quill **1.3.6 from a CDN**; versions before 1.3.7 have a reverse-tabnabbing flaw (links opened with `target=_blank` and no `rel`). Now 1.3.7 ships in `dev/vendor/` and `prod/vendor/` (JS + CSS): no CDN, no pinned hashes that can go stale, cached by the service worker, and the CSP no longer trusts any script host.
 - The second advisory (CVE-2021-3163, XSS through event-handler attributes) is disputed and has no fix in any 1.x release. Tests now push such payloads through the editor and the save step and check nothing survives.
 - The tests run the exact bundled file; `quill` is no longer an npm dev dependency, so `npm audit` reports 0 vulnerabilities.
+
+## Security review (see SECURITY.md)
+Everything below has a regression test that fails without the fix (174 tests in total).
+- **Credential phishing:** prod login no longer accepts `?bouncer=` from the address bar or another window; https required for passwords; owner/repo validated; `message` events only from the embedding parent.
+- **XSS hardening:** CSP is `script-src 'self'` (no inline); all 28 inline handlers and 2 inline scripts removed (`js/actions.js`, `js/boot.js`); repo HTML is sanitised in an inert document before use and imported, never re-parsed; URL checks see through tab/newline tricks; dev can only send the token to `api.github.com`.
+- **Bouncers:** write allowlist (pages + `img/` images, never `.github/`, scripts, SVG) in PHP, Supabase, Node and Cloudflare; per-address failure throttle (429); no email-enumeration difference (Supabase, Node); GitHub's token-scope headers no longer forwarded (Supabase); upstream error text no longer echoed (Node); 8 MB request cap; Worker refuses passwords under 12 characters.
+- **PHP:** the sites file can no longer sit in the public folder (`sites.php`, parent folder or env path; plain `sites.json` there is refused); `.htaccess` + `sites.example.php`; PHP is tested against the real script under `php -S`.
+- **Service worker:** caches only the app's own files, never bouncer/API responses.
+- **Uploads:** SVG refused (it can carry scripts).
+- Docs: `SECURITY.md` (threat model, deployment checklist, remaining risks), fine-grained token guidance in the README and login screen.

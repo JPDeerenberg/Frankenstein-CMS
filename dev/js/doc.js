@@ -239,27 +239,74 @@ function serializeHtmlDocument(originalRaw, doc) {
 }
 
 /**
- * Make the preview inert. Only the preview is sanitised — saved files are
- * built from the original document and never from this tree.
+ * Is `value` safe in a URL attribute? Browsers ignore tabs, newlines and other
+ * invisible characters inside a URL ("java<TAB>script:" IS javascript:), so the
+ * scheme is read from the cleaned-up value, and only known-harmless schemes pass.
+ */
+function isSafeUrl(value, attr, tag) {
+  const v = String(value).replace(
+    /[\u0000-\u0020\u007f-\u009f\u200b-\u200f\u2028\u2029\ufeff]/g,
+    "",
+  );
+  const m = /^([a-z][a-z0-9+.-]*):/i.exec(v);
+  if (!m) return true; // relative path, #anchor or //host
+  const scheme = m[1].toLowerCase();
+  if (["http", "https", "mailto", "tel"].indexOf(scheme) !== -1) return true;
+  if (scheme === "blob") return attr === "src";
+  if (scheme === "data") {
+    return (
+      attr === "src" &&
+      String(tag).toUpperCase() === "IMG" &&
+      /^data:image\/(png|jpe?g|gif|webp|avif|bmp|svg\+xml)[;,]/i.test(v)
+    );
+  }
+  return false;
+}
+
+const PREVIEW_URL_ATTRS = [
+  "href",
+  "src",
+  "action",
+  "formaction",
+  "xlink:href",
+  "poster",
+  "background",
+  "data",
+  "ping",
+  "cite",
+  "longdesc",
+];
+
+/**
+ * Make a tree inert for the preview. Call it on the INERT document that
+ * DOMParser returned (nothing runs there) BEFORE any node reaches the live
+ * page; saved files are built from the original document, never from this tree.
  */
 function sanitizePreviewTree(root) {
   root
-    .querySelectorAll("script, object, embed, base, meta[http-equiv]")
+    .querySelectorAll(
+      "script, object, embed, applet, base, meta[http-equiv], link[rel~=import], animate, set, animatemotion, animatetransform",
+    )
     .forEach(function (n) {
       n.remove();
     });
   root.querySelectorAll("iframe").forEach(function (f) {
     f.setAttribute("sandbox", "");
+    f.removeAttribute("srcdoc");
   });
-  const urlAttrs = ["href", "src", "action", "formaction", "xlink:href"];
   root.querySelectorAll("*").forEach(function (el) {
     Array.from(el.attributes).forEach(function (a) {
       const name = a.name.toLowerCase();
       if (name.indexOf("on") === 0) {
         el.removeAttribute(a.name);
+      } else if (name === "srcset") {
+        const ok = a.value.split(",").every(function (c) {
+          return isSafeUrl(c.trim().split(/\s+/)[0] || "", "src", el.tagName);
+        });
+        if (!ok) el.removeAttribute(a.name);
       } else if (
-        urlAttrs.indexOf(name) !== -1 &&
-        /^\s*(javascript:|vbscript:|data:text\/html)/i.test(a.value)
+        PREVIEW_URL_ATTRS.indexOf(name) !== -1 &&
+        !isSafeUrl(a.value, name, el.tagName)
       ) {
         el.removeAttribute(a.name);
       }

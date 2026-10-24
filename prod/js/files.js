@@ -317,7 +317,12 @@ function buildPreviewStage(doc) {
   pageWrapper.className = doc.body.className;
   const bodyStyle = doc.body.getAttribute("style");
   if (bodyStyle) pageWrapper.setAttribute("style", bodyStyle);
-  pageWrapper.innerHTML = doc.body.innerHTML;
+  // `doc` came from DOMParser (inert) and was sanitised by renderEditor. Nodes are
+  // MOVED with importNode, never re-serialised and re-parsed, so no handler can
+  // fire during parsing and mutation-XSS is not possible. Second pass: belt and braces.
+  Array.from(doc.body.childNodes).forEach(function (node) {
+    pageWrapper.appendChild(document.importNode(node, true));
+  });
   sanitizePreviewTree(pageWrapper);
 
   // The preview is not a real site: no navigation, no form posts.
@@ -353,6 +358,7 @@ async function renderEditor(html, path, opts) {
 
   const currentDir = dirOf(path);
   const doc = new DOMParser().parseFromString(html, "text/html");
+  sanitizePreviewTree(doc.body); // while it is still inert
   if (window.SEO) SEO.initInputs(doc);
 
   const built = buildPreviewStage(doc);
@@ -918,8 +924,17 @@ async function handleImageUpload(event) {
     alert("Open a page before uploading images.");
     return;
   }
-  if (!/^image\//i.test(file.type)) {
-    alert("Please choose an image file.");
+  // SVG is refused on purpose: an uploaded .svg can contain scripts that run
+  // when someone opens its URL on your site.
+  if (
+    !/^image\/(png|jpe?g|gif|webp|avif|x-icon|vnd\.microsoft\.icon)$/i.test(
+      file.type,
+    ) ||
+    !/\.(png|jpe?g|gif|webp|avif|ico)$/i.test(file.name)
+  ) {
+    alert(
+      "Please choose a PNG, JPG, GIF, WebP, AVIF or ICO image. (SVG is not allowed: it can contain scripts.)",
+    );
     return;
   }
   if (file.size > 5 * 1024 * 1024) {

@@ -11,3 +11,8 @@
 8. **Try the phone layout on a real phone** (Chrome/Android and iOS Safari): the drawer, the bottom formatting bar, Gboard autocorrect inside the editor (Quill 1.x has known quirks there), and the install flow. These could not be verified without a device.
 9. **Native wrapper** (optional): wrap the installed web app as an APK with Bubblewrap/PWABuilder (TWA) if you want it in a store.
 10. **More blocks / your own blocks:** blocks live in `dev/js/blocks.js` as small functions returning HTML; add yours there (and copy to `prod/js/`), or move the library into a JSON file per site.
+
+11. **Per-client audit trail:** commits are made with the shared token, so Git history cannot say which client edited. Add the client as commit author in the bouncer.
+12. **Hard rate limiting without Cloudflare's WAF:** a Durable Object counter in the Worker.
+13. **Pin the Supabase import** (`esm.sh/@supabase/supabase-js@2`) to a full version, and vendor water.css.
+14. **Optional "keep me signed in" switch** in dev so the encrypted token is not stored unless asked.

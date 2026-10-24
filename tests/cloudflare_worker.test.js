@@ -13,19 +13,19 @@ test.before(async () => {
 const SITES = {
   "anna@bakery.com": {
     name: "Anna's Bakery",
-    password: "pw-anna",
+    password: "pw-anna-123456",
     owner: "me",
     repo: "bakery",
     token: "ghp_site_token",
   },
   "bob@shop.com": {
     name: "Bob",
-    password: "pw-bob",
+    password: "pw-bob-1234567",
     owner: "bobco",
     repo: "shop",
   },
-  "broken@x.com": { password: "pw", token: "t" }, // no owner/repo
-  "notoken@x.com": { password: "pw", owner: "me", repo: "r" },
+  "broken@x.com": { password: "pw-long-enough-1", token: "t" }, // no owner/repo
+  "notoken@x.com": { password: "pw-long-enough-1", owner: "me", repo: "r" },
 };
 
 function makeEnv(extra) {
@@ -46,6 +46,7 @@ function makeEnv(extra) {
 async function call(env, opts) {
   const upstream = [];
   const realFetch = globalThis.fetch;
+  let ipCounter = (call.n = (call.n || 0) + 1);
   globalThis.fetch = async (url, init) => {
     upstream.push({ url: String(url), init });
     return new Response(opts.githubBody || '{"ok":true}', {
@@ -55,6 +56,8 @@ async function call(env, opts) {
         "X-RateLimit-Remaining": "4999",
         ETag: '"abc"',
         "Set-Cookie": "leak=1",
+        "X-OAuth-Scopes": "repo, workflow",
+        "GitHub-Authentication-Token-Expiration": "2027-01-01",
       },
     });
   };
@@ -62,7 +65,11 @@ async function call(env, opts) {
     const url = "https://bouncer.example/" + (opts.query || "");
     const req = new Request(url, {
       method: opts.method || "GET",
-      headers: opts.headers || {},
+      headers: {
+        "CF-Connecting-IP":
+          opts.ip || `203.0.113.${ipCounter % 250}-${ipCounter}`,
+        ...(opts.headers || {}),
+      },
       body: opts.body,
     });
     const res = await worker.fetch(req, env);
@@ -106,7 +113,7 @@ test("CORS preflight allows the headers the CMS sends", async () => {
 test("login: the CMS learns the site's repo from the bouncer (no per-site config)", async () => {
   const { res, upstream } = await call(makeEnv(), {
     query: "?action=site",
-    headers: login("anna@bakery.com", "pw-anna"),
+    headers: login("anna@bakery.com", "pw-anna-123456"),
   });
   assert.strictEqual(res.status, 200);
   assert.deepStrictEqual(await res.json(), {
@@ -121,7 +128,7 @@ test("login: the CMS learns the site's repo from the bouncer (no per-site config
 test("the email is matched case-insensitively and trimmed", async () => {
   const { res } = await call(makeEnv(), {
     query: "?action=site",
-    headers: login("  Anna@Bakery.COM ", "pw-anna"),
+    headers: login("  Anna@Bakery.COM ", "pw-anna-123456"),
   });
   assert.strictEqual(res.status, 200);
 });
@@ -134,7 +141,7 @@ test("wrong password, unknown email and missing email are refused", async () => 
   assert.strictEqual(wrong.res.status, 401);
   const unknown = await call(makeEnv(), {
     query: "?action=site",
-    headers: login("who@nowhere.com", "pw-anna"),
+    headers: login("who@nowhere.com", "pw-anna-123456"),
   });
   assert.strictEqual(unknown.res.status, 401);
   const none = await call(makeEnv(), { query: "?action=site", headers: {} });
@@ -150,7 +157,7 @@ test("proxy: uses the SITE's token, passes Accept/Content-Type, hides browser he
   const { res, upstream } = await call(makeEnv(), {
     query: q("/repos/me/bakery/contents/index.html"),
     headers: {
-      ...login("anna@bakery.com", "pw-anna"),
+      ...login("anna@bakery.com", "pw-anna-123456"),
       Accept: "application/vnd.github.v3.raw",
       Cookie: "secret=1",
       Origin: "https://evil.example",
@@ -176,7 +183,7 @@ test("proxy: uses the SITE's token, passes Accept/Content-Type, hides browser he
 test("sites without their own token use the GITHUB_TOKEN secret; none at all gives a helpful setup error", async () => {
   const withDefault = await call(makeEnv(), {
     query: q("/repos/bobco/shop"),
-    headers: login("bob@shop.com", "pw-bob"),
+    headers: login("bob@shop.com", "pw-bob-1234567"),
   });
   assert.strictEqual(withDefault.res.status, 200);
   assert.strictEqual(
@@ -186,14 +193,14 @@ test("sites without their own token use the GITHUB_TOKEN secret; none at all giv
 
   const none = await call(makeEnv({ GITHUB_TOKEN: undefined }), {
     query: q("/repos/me/r"),
-    headers: login("notoken@x.com", "pw"),
+    headers: login("notoken@x.com", "pw-long-enough-1"),
   });
   assert.strictEqual(none.res.status, 500);
   assert.match((await none.res.json()).message, /no GitHub token/);
 });
 
 test("a client can only reach their own repo, and only what the CMS needs", async () => {
-  const h = login("anna@bakery.com", "pw-anna");
+  const h = login("anna@bakery.com", "pw-anna-123456");
   for (const [method, p] of [
     ["GET", "/repos/me/other/contents/x"],
     ["GET", "/repos/bobco/shop/contents/x"],
@@ -224,7 +231,7 @@ test("saving a file: PUT body and content type reach GitHub unchanged", async ()
     method: "PUT",
     query: q("/repos/me/bakery/contents/a%20b.html"),
     headers: {
-      ...login("anna@bakery.com", "pw-anna"),
+      ...login("anna@bakery.com", "pw-anna-123456"),
       "Content-Type": "application/json",
     },
     body,
@@ -243,7 +250,7 @@ test("GitHub errors (409, 404) pass through with their status", async () => {
     method: "PUT",
     query: q("/repos/me/bakery/contents/x.html"),
     headers: {
-      ...login("anna@bakery.com", "pw-anna"),
+      ...login("anna@bakery.com", "pw-anna-123456"),
       "Content-Type": "application/json",
     },
     body: "{}",
@@ -258,7 +265,7 @@ test("session token: after login the password is no longer needed; tampering, ot
   const env = makeEnv();
   const first = await call(env, {
     query: "?action=site",
-    headers: login("anna@bakery.com", "pw-anna"),
+    headers: login("anna@bakery.com", "pw-anna-123456"),
   });
   const token = first.res.headers.get("X-Session-Token");
 
@@ -295,7 +302,7 @@ test("session token: after login the password is no longer needed; tampering, ot
     });
     assert.strictEqual(afterChange.res.status, 401);
   } finally {
-    SITES["anna@bakery.com"].password = "pw-anna";
+    SITES["anna@bakery.com"].password = "pw-anna-123456";
   }
 });
 
@@ -323,7 +330,7 @@ test("setup mistakes produce readable errors instead of a mystery", async () => 
 
   const noOwner = await call(makeEnv(), {
     query: "?action=site",
-    headers: login("broken@x.com", "pw"),
+    headers: login("broken@x.com", "pw-long-enough-1"),
   });
   assert.strictEqual(noOwner.res.status, 500);
   assert.match((await noOwner.res.json()).message, /no "owner"/);
@@ -332,7 +339,7 @@ test("setup mistakes produce readable errors instead of a mystery", async () => 
 test("a valid login with an unknown action and no path gets a clear 400", async () => {
   const { res } = await call(makeEnv(), {
     query: "?action=bogus",
-    headers: login("anna@bakery.com", "pw-anna"),
+    headers: login("anna@bakery.com", "pw-anna-123456"),
   });
   assert.strictEqual(res.status, 400);
   assert.match((await res.json()).message, /Missing path/);
@@ -342,7 +349,7 @@ test("sessions expire after 8 hours", async () => {
   const env = makeEnv();
   const first = await call(env, {
     query: "?action=site",
-    headers: login("anna@bakery.com", "pw-anna"),
+    headers: login("anna@bakery.com", "pw-anna-123456"),
   });
   const token = first.res.headers.get("X-Session-Token");
   const headers = { "Site-Email": "anna@bakery.com", "Site-Session": token };
@@ -362,4 +369,132 @@ test("sessions expire after 8 hours", async () => {
   } finally {
     Date.now = realNow;
   }
+});
+
+test("GitHub's token metadata headers never reach the browser", async () => {
+  const { res } = await call(makeEnv(), {
+    query: q("/repos/me/bakery"),
+    headers: login("anna@bakery.com", "pw-anna-123456"),
+  });
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(res.headers.get("X-OAuth-Scopes"), null);
+  assert.strictEqual(
+    res.headers.get("GitHub-Authentication-Token-Expiration"),
+    null,
+  );
+});
+
+test("passwords shorter than 12 characters are refused with a clear setup error", async () => {
+  SITES["short@x.com"] = {
+    password: "short",
+    owner: "me",
+    repo: "r",
+    token: "t",
+  };
+  try {
+    const { res } = await call(makeEnv(), {
+      query: "?action=site",
+      headers: login("short@x.com", "short"),
+    });
+    assert.strictEqual(res.status, 500);
+    assert.match((await res.json()).message, /shorter than 12/);
+  } finally {
+    delete SITES["short@x.com"];
+  }
+});
+
+test("a client can only write pages and img/ images (no workflows, scripts, SVG)", async () => {
+  const h = {
+    ...login("anna@bakery.com", "pw-anna-123456"),
+    "Content-Type": "application/json",
+  };
+  for (const p of [
+    "/repos/me/bakery/contents/.github/workflows/deploy.yml",
+    "/repos/me/bakery/contents/app.js",
+    "/repos/me/bakery/contents/style.css",
+    "/repos/me/bakery/contents/img/evil.svg",
+    "/repos/me/bakery/contents/img/deep/a.png",
+  ]) {
+    const { res, upstream } = await call(makeEnv(), {
+      method: "PUT",
+      query: q(p),
+      headers: h,
+      body: "{}",
+    });
+    assert.strictEqual(res.status, 403, p);
+    assert.strictEqual(upstream.length, 0);
+  }
+  for (const p of [
+    "/repos/me/bakery/contents/blog/post.html",
+    "/repos/me/bakery/contents/img/photo.png",
+  ]) {
+    const { res } = await call(makeEnv(), {
+      method: "PUT",
+      query: q(p),
+      headers: h,
+      body: "{}",
+    });
+    assert.strictEqual(res.status, 200, p);
+  }
+});
+
+test("oversized requests are refused before anything is sent to GitHub", async () => {
+  const h = {
+    ...login("anna@bakery.com", "pw-anna-123456"),
+    "Content-Type": "application/json",
+  };
+  const big = "x".repeat(9 * 1024 * 1024);
+  const { res, upstream } = await call(makeEnv(), {
+    method: "PUT",
+    query: q("/repos/me/bakery/contents/index.html"),
+    headers: h,
+    body: big,
+  });
+  assert.strictEqual(res.status, 413);
+  assert.strictEqual(upstream.length, 0);
+});
+
+test("brute force: after 10 failures a client address is refused, even with the right password; others are unaffected; success resets", async () => {
+  const env = makeEnv();
+  const ip = "198.51.100.7";
+  for (let i = 0; i < 9; i++) {
+    const { res } = await call(env, {
+      ip,
+      query: "?action=site",
+      headers: login("anna@bakery.com", "wrong-" + i),
+    });
+    assert.strictEqual(res.status, 401);
+  }
+  // a correct login in between resets the counter
+  assert.strictEqual(
+    (
+      await call(env, {
+        ip,
+        query: "?action=site",
+        headers: login("anna@bakery.com", "pw-anna-123456"),
+      })
+    ).res.status,
+    200,
+  );
+  for (let i = 0; i < 10; i++) {
+    await call(env, {
+      ip,
+      query: "?action=site",
+      headers: login("anna@bakery.com", "wrong"),
+    });
+  }
+  const blocked = await call(env, {
+    ip,
+    query: "?action=site",
+    headers: login("anna@bakery.com", "pw-anna-123456"),
+  });
+  assert.strictEqual(blocked.res.status, 429);
+  assert.ok(blocked.res.headers.get("Retry-After"));
+  assert.strictEqual(blocked.res.headers.get("X-Session-Token"), null);
+  const other = await call(env, {
+    ip: "198.51.100.8",
+    query: "?action=site",
+    headers: login("anna@bakery.com", "pw-anna-123456"),
+  });
+  assert.strictEqual(other.res.status, 200);
 });

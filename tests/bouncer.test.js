@@ -195,3 +195,107 @@ test("Node bouncer server: auth, CORS and path restriction (no network needed)",
     server.close();
   }
 });
+
+test("failure limiter: blocks after max failures, expires with the window, resets on success", () => {
+  const l = nodeBouncer.createFailureLimiter(3, 1000);
+  l.fail("a", 0);
+  l.fail("a", 10);
+  assert.strictEqual(l.blocked("a", 20), false);
+  l.fail("a", 20);
+  assert.strictEqual(l.blocked("a", 30), true);
+  assert.strictEqual(l.blocked("b", 30), false, "per client");
+  assert.strictEqual(l.blocked("a", 1500), false, "window expired");
+  l.fail("a", 2000);
+  l.fail("a", 2001);
+  l.fail("a", 2002);
+  l.reset("a");
+  assert.strictEqual(l.blocked("a", 2003), false);
+});
+
+test("Supabase (TypeScript) failure limiter behaves the same", (t) => {
+  const mod = require("node:module");
+  if (typeof mod.stripTypeScriptTypes !== "function") {
+    t.skip("this Node version cannot strip TypeScript types");
+    return;
+  }
+  const ts = fs.readFileSync(
+    path.join(root, "prod/worker/supabase-bouncer.ts"),
+    "utf8",
+  );
+  const code = mod.stripTypeScriptTypes(
+    between(ts, "// BOUNCER-LIMITER-START", "// BOUNCER-LIMITER-END"),
+  );
+  const api = new Function(code + "\nreturn { isBlocked, recordFailure };")();
+  for (let i = 0; i < 9; i++) api.recordFailure("ip1");
+  assert.strictEqual(api.isBlocked("ip1"), false);
+  api.recordFailure("ip1");
+  assert.strictEqual(api.isBlocked("ip1"), true);
+  assert.strictEqual(api.isBlocked("ip2"), false);
+});
+
+test("Node bouncer server: 429 after repeated failures, no email-enumeration oracle, 413 for oversized bodies", async () => {
+  const clients = {
+    "known@x.com": {
+      password: "a-long-password-1",
+      github_token: "t",
+      github_owner: "me",
+      github_repo: "site",
+    },
+  };
+  const server = nodeBouncer.createServer({ AUTH_FAIL_DELAY_MS: "0" }, clients); // multi-tenant, no single tenant
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const port = server.address().port;
+  const p = "/?path=" + encodeURIComponent("/repos/me/site/contents/a.html");
+  try {
+    const unknown = await request(port, {
+      path: p,
+      headers: { "Site-Email": "nobody@x.com", "Site-Password": "x" },
+    });
+    const wrongPw = await request(port, {
+      path: p,
+      headers: { "Site-Email": "known@x.com", "Site-Password": "x" },
+    });
+    assert.strictEqual(unknown.status, 401);
+    assert.strictEqual(
+      unknown.status,
+      wrongPw.status,
+      "unknown email and wrong password look identical",
+    );
+    assert.strictEqual(unknown.body, wrongPw.body);
+
+    // 413 before anything is forwarded: declared and actual size
+    const good = {
+      "Site-Email": "known@x.com",
+      "Site-Password": "a-long-password-1",
+    };
+    const big = await new Promise((resolve, reject) => {
+      const req = http.request(
+        {
+          host: "127.0.0.1",
+          port,
+          method: "PUT",
+          path: p,
+          headers: { ...good, "Content-Length": String(9 * 1024 * 1024) },
+        },
+        (res) => {
+          res.resume();
+          res.on("end", () => resolve(res.statusCode));
+        },
+      );
+      req.on("error", reject);
+      req.end(Buffer.alloc(9 * 1024 * 1024, 120));
+    });
+    assert.strictEqual(big, 413);
+
+    for (let i = 0; i < 10; i++) {
+      await request(port, {
+        path: p,
+        headers: { "Site-Email": "known@x.com", "Site-Password": "nope" + i },
+      });
+    }
+    const blocked = await request(port, { path: p, headers: good });
+    assert.strictEqual(blocked.status, 429);
+  } finally {
+    server.close();
+  }
+});

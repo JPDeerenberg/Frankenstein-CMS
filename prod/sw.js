@@ -10,6 +10,8 @@ const ASSETS = [
   "./js/doc.js",
   "./js/blocks.js",
   "./js/pwa.js",
+  "./js/boot.js",
+  "./js/actions.js",
   "./vendor/quill.min.js",
   "./vendor/quill.core.css",
   "./manifest.webmanifest",
@@ -25,6 +27,16 @@ const ASSETS = [
   "./js/igor.js",
   "./demo_page.html",
 ];
+
+// Only the CMS's own files are ever cached. A bouncer hosted on THIS origin
+// (e.g. /bouncer.php) returns repository contents: those must never end up in
+// Cache Storage, where they would outlive the logout and show up offline.
+const ASSET_PATHS = new Set(
+  ASSETS.map((a) => {
+    const u = new URL(a, self.location.href);
+    return u.origin + u.pathname;
+  }),
+);
 
 self.addEventListener("install", (event) => {
   // cache each asset on its own so one missing file cannot abort the rest
@@ -56,6 +68,8 @@ self.addEventListener("fetch", (event) => {
   // Only handle same-origin CMS assets; never intercept GitHub API / bouncer calls
   if (url.origin !== self.location.origin) return;
   if (event.request.method !== "GET") return;
+  if (!ASSET_PATHS.has(url.origin + url.pathname)) return;
+  if (url.searchParams.has("path") || url.searchParams.has("action")) return;
 
   event.respondWith(
     fetch(event.request)

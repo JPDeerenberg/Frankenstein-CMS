@@ -12,6 +12,8 @@ const SHARED = [
   "doc.js",
   "blocks.js",
   "pwa.js",
+  "actions.js",
+  "boot.js",
   "editor.js",
   "ui.js",
   "seo.js",

@@ -46,9 +46,9 @@ for (const env of ["dev", "prod"]) {
       'class="mobile-bar"',
       'class="sidebar-backdrop"',
       'id="btn-install"',
-      "toggleSidebar()",
-      "closeSidebar()",
-      "installApp()",
+      'data-action="toggleSidebar"',
+      'data-action="closeSidebar"',
+      'data-action="installApp"',
     ]) {
       assert.ok(
         html.includes(needle),

@@ -52,7 +52,7 @@
               type: "frankenstein-config",
               config: config,
             },
-            "*",
+            new URL(iframe.src).origin, // never "*": only the CMS itself may receive this
           );
         } catch (e) {
           console.error("Failed to send config to iframe", e);

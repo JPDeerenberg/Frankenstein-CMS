@@ -24,17 +24,20 @@ const res = (status, body, headers) => ({
 function setup(fields, handler) {
   const urls = [];
   const alerts = [];
-  const w = createEnv(["prod/js/config.js", "prod/js/auth.js"], {
-    html: LOGIN_HTML,
-    beforeScripts(win) {
-      win.fetch = async (url, init) => {
-        urls.push(String(url));
-        return handler(String(url), init);
-      };
-      win.alert = (m) => alerts.push(m);
-      win.showDashboard = () => (win.__dashboard = true);
+  const w = createEnv(
+    ["prod/js/config.js", "prod/js/utils.js", "prod/js/auth.js"],
+    {
+      html: LOGIN_HTML,
+      beforeScripts(win) {
+        win.fetch = async (url, init) => {
+          urls.push(String(url));
+          return handler(String(url), init);
+        };
+        win.alert = (m) => alerts.push(m);
+        win.showDashboard = () => (win.__dashboard = true);
+      },
     },
-  });
+  );
   const set = (id, v) => (w.document.getElementById(id).value = v);
   set("cfg-email", "anna@bakery.com");
   set("cfg-password", "pw");

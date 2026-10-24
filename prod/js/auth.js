@@ -1,13 +1,32 @@
 // Authentication and login management
 
-// Helper: read configuration from URL query parameters
+// Is this page framed by a page on the SAME origin (our own iframe.html)?
+// A cross-origin parent makes the property access throw, which counts as "no".
+function embeddedBySameOrigin() {
+  try {
+    return (
+      window.parent !== window &&
+      window.parent.location.origin === window.location.origin
+    );
+  } catch (e) {
+    return false;
+  }
+}
+
+// Helper: read configuration from URL query parameters.
+// owner/repo are always read. The bouncer address (where the password is sent)
+// is only read when this page is embedded by a same-origin page such as
+// iframe.html: a crafted link (?bouncer=https://evil.example) opened directly,
+// or framed from another site, is ignored, so it cannot redirect a client's
+// password to an attacker. Normally set bouncerUrl in frankenstein.config.json.
 function getUrlConfig() {
   const params = new URLSearchParams(window.location.search);
+  const trusted = embeddedBySameOrigin();
   return {
     owner: params.get("owner") || "",
     repo: params.get("repo") || "",
-    bouncer: params.get("bouncer") || "",
-    backupBouncer: params.get("backupBouncer") || "",
+    bouncer: trusted ? params.get("bouncer") || "" : "",
+    backupBouncer: trusted ? params.get("backupBouncer") || "" : "",
   };
 }
 
@@ -20,6 +39,15 @@ function getUrlConfig() {
  * Never throws: network problems come back as { ok: false, status: 0 }.
  */
 async function loginToBouncer(base, email, password, owner, repo) {
+  if (!isSafeBouncerUrl(base)) {
+    return {
+      ok: false,
+      status: 0,
+      res: null,
+      message:
+        "The bouncer URL must start with https:// (credentials are never sent over plain http).",
+    };
+  }
   const headers = { "Site-Email": email, "Site-Password": password };
   try {
     const res = await fetch(`${base}?action=site`, { headers });
@@ -77,7 +105,7 @@ async function saveConfigAndLogin() {
   let owner = document.getElementById("cfg-owner").value.trim();
   let repo = document.getElementById("cfg-repo").value.trim();
   let bouncerUrl = document.getElementById("cfg-bouncer").value.trim();
-  const backupBouncerUrl = document
+  let backupBouncerUrl = document
     .getElementById("cfg-bouncer-backup")
     .value.trim();
 
@@ -85,16 +113,18 @@ async function saveConfigAndLogin() {
     return alert("Please enter your Client Email and Site Password.");
   }
 
+  const urlCfg = getUrlConfig();
+  if (!owner && isValidRepoName(urlCfg.owner)) owner = urlCfg.owner;
+  if (!repo && isValidRepoName(urlCfg.repo)) repo = urlCfg.repo;
+  if (owner && !isValidRepoName(owner)) owner = "";
+  if (repo && !isValidRepoName(repo)) repo = "";
+
+  if (!bouncerUrl) bouncerUrl = urlCfg.bouncer;
+  if (!backupBouncerUrl) backupBouncerUrl = urlCfg.backupBouncer;
   if (!bouncerUrl) {
-    const urlCfg = getUrlConfig();
-    if (!owner && urlCfg.owner) owner = urlCfg.owner;
-    if (!repo && urlCfg.repo) repo = urlCfg.repo;
-    bouncerUrl = urlCfg.bouncer;
-    if (!bouncerUrl) {
-      return alert(
-        "System Error: The Bouncer is not configured. Set bouncerUrl in frankenstein.config.json (or pass ?bouncer=… in the URL).",
-      );
-    }
+    return alert(
+      "System Error: The Bouncer is not configured. Set bouncerUrl in frankenstein.config.json.",
+    );
   }
 
   const loginMsg = document.getElementById("login-msg");
@@ -217,16 +247,18 @@ async function tryAutoFillConfig() {
     const res = await fetch("frankenstein.config.json");
     if (res.ok) {
       const data = await res.json();
-      if (data.owner) document.getElementById("cfg-owner").value = data.owner;
-      if (data.repo) document.getElementById("cfg-repo").value = data.repo;
-      if (data.bouncerUrl)
+      if (isValidRepoName(data.owner))
+        document.getElementById("cfg-owner").value = data.owner;
+      if (isValidRepoName(data.repo))
+        document.getElementById("cfg-repo").value = data.repo;
+      if (isSafeBouncerUrl(data.bouncerUrl))
         document.getElementById("cfg-bouncer").value = data.bouncerUrl;
-      if (data.backupBouncerUrl)
+      if (isSafeBouncerUrl(data.backupBouncerUrl))
         document.getElementById("cfg-bouncer-backup").value =
           data.backupBouncerUrl;
 
       // Hide all configuration fields if bouncer is fully configured
-      if (data.bouncerUrl) {
+      if (isSafeBouncerUrl(data.bouncerUrl)) {
         hideConfigFields();
       }
     }
@@ -239,24 +271,19 @@ async function tryAutoFillConfig() {
   // because the Bouncer URL must be explicitly configured.
 }
 
+// Messages may only pre-fill owner/repo, and only from the embedding page.
+// The bouncer URL (where the password is sent) can come ONLY from
+// frankenstein.config.json on this origin, never from another window.
 function applyExternalConfig(cfg) {
   if (!cfg) return;
-  if (cfg.owner) document.getElementById("cfg-owner").value = cfg.owner;
-  if (cfg.repo) document.getElementById("cfg-repo").value = cfg.repo;
-  if (cfg.bouncerUrl || cfg.bouncer)
-    document.getElementById("cfg-bouncer").value =
-      cfg.bouncerUrl || cfg.bouncer;
-  if (cfg.backupBouncerUrl || cfg.backupBouncer)
-    document.getElementById("cfg-bouncer-backup").value =
-      cfg.backupBouncerUrl || cfg.backupBouncer;
-
-  // Logic to hide fields if required info is present
-  if (document.getElementById("cfg-bouncer").value) {
-    hideConfigFields();
-  }
+  if (isValidRepoName(cfg.owner))
+    document.getElementById("cfg-owner").value = cfg.owner;
+  if (isValidRepoName(cfg.repo))
+    document.getElementById("cfg-repo").value = cfg.repo;
 }
 
 window.addEventListener("message", (event) => {
+  if (event.source !== window.parent || window.parent === window) return;
   if (event.data && event.data.type === "frankenstein-config") {
     applyExternalConfig(event.data.config);
   }

@@ -1,0 +1,5 @@
+# Never serve the sites file: it holds passwords and GitHub tokens.
+# (Apache 2.4. For nginx see SECURITY.md.) Better still: keep it outside the web root.
+<FilesMatch "^(sites\.json|sites\.php|clients\.json)$">
+  Require all denied
+</FilesMatch>

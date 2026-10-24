@@ -55,6 +55,33 @@ function arrayBufferToBase64(buffer) {
   return btoa(binary);
 }
 
+/** GitHub owner / repo names: letters, digits, dot, dash, underscore; never "." or "..". */
+function isValidRepoName(s) {
+  return (
+    typeof s === "string" &&
+    /^[A-Za-z0-9_.-]{1,100}$/.test(s) &&
+    s !== "." &&
+    s !== ".."
+  );
+}
+
+/** Credentials may only travel over https (or to localhost while developing). */
+function isSafeBouncerUrl(u) {
+  try {
+    const x = new URL(u);
+    if (x.username || x.password) return false;
+    if (x.protocol === "https:") return true;
+    return (
+      x.protocol === "http:" &&
+      (x.hostname === "localhost" ||
+        x.hostname === "127.0.0.1" ||
+        x.hostname === "[::1]")
+    );
+  } catch (e) {
+    return false;
+  }
+}
+
 /** Escape text for safe use inside HTML. */
 function escapeHtml(str) {
   return String(str)

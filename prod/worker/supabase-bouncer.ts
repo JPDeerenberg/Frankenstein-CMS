@@ -25,10 +25,55 @@ const corsHeaders: Record<string, string> = {
 
 const SESSION_TTL_SEC = 28800; // 8 hours
 
+const MAX_BODY_BYTES = 8 * 1024 * 1024; // images are limited to 5 MB (+ base64)
+// BOUNCER-LIMITER-START
+const FAIL_LIMIT = 10;
+const FAIL_WINDOW_MS = 15 * 60 * 1000;
+
+// Failed-login throttle. Kept in memory of this function instance: a best-effort
+// speed bump, NOT a guarantee (instances come and go). Add a rate limit in front
+// of the function if you want a hard one, and use long random passwords.
+const failures = new Map<string, { first: number; count: number }>();
+
+function isBlocked(ip: string): boolean {
+  const f = failures.get(ip);
+  if (!f) return false;
+  if (Date.now() - f.first > FAIL_WINDOW_MS) {
+    failures.delete(ip);
+    return false;
+  }
+  return f.count >= FAIL_LIMIT;
+}
+
+function recordFailure(ip: string): void {
+  const now = Date.now();
+  const f = failures.get(ip);
+  if (!f || now - f.first > FAIL_WINDOW_MS)
+    failures.set(ip, { first: now, count: 1 });
+  else f.count++;
+  if (failures.size > 5000) failures.clear(); // keep memory bounded
+}
+// BOUNCER-LIMITER-END
+
 // BOUNCER-GUARD-START
 // Whitelist of GitHub requests the CMS may make through this bouncer.
 // Mirrors github_request_allowed() in bouncer.php and bouncer-node.js
 // (tests/bouncer.test.js keeps the implementations in sync).
+// Files a client may WRITE: the pages the CMS edits (.html/.htm) and image
+// uploads straight into img/. Never dotfiles/dot-folders (.github, .env …), never
+// scripts, styles, configs, or SVG (it can carry scripts).
+function isAllowedWritePath(parts: string[]): boolean {
+  if (parts.length === 0) return false;
+  if (parts.some((p) => p.startsWith("."))) return false;
+  const name = parts[parts.length - 1].toLowerCase();
+  if (/\.html?$/.test(name)) return true;
+  return (
+    parts.length === 2 &&
+    parts[0] === "img" &&
+    /\.(png|jpe?g|gif|webp|avif|ico)$/.test(name)
+  );
+}
+
 function isAllowedGithubRequest(
   method: string,
   rawPath: string,
@@ -60,7 +105,9 @@ function isAllowedGithubRequest(
   if (segments.length === 3) return readOnly;
   switch (segments[3]) {
     case "contents":
-      return readOnly || method === "PUT";
+      return (
+        readOnly || (method === "PUT" && isAllowedWritePath(decoded.slice(4)))
+      );
     case "commits":
       return readOnly;
     case "git":
@@ -152,6 +199,20 @@ Deno.serve(async (req) => {
       });
     }
 
+    const ip =
+      req.headers.get("cf-connecting-ip") ||
+      (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
+      "unknown";
+    if (isBlocked(ip)) {
+      return new Response(
+        "Too many failed attempts. Try again in a few minutes.",
+        {
+          status: 429,
+          headers: { ...corsHeaders, "Retry-After": "900" },
+        },
+      );
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
@@ -164,8 +225,11 @@ Deno.serve(async (req) => {
       .single();
 
     if (error || !site) {
-      console.error("Site not found:", clientEmail, error);
-      return new Response("Unauthorized: Site not configured", {
+      // Same answer and same delay as a wrong password: otherwise the response
+      // tells an attacker which client emails exist.
+      recordFailure(ip);
+      await new Promise((r) => setTimeout(r, 2000));
+      return new Response("Unauthorized: Incorrect credentials", {
         status: 401,
         headers: corsHeaders,
       });
@@ -188,6 +252,7 @@ Deno.serve(async (req) => {
     }
 
     if (!authenticated) {
+      recordFailure(ip);
       await new Promise((r) => setTimeout(r, 2000));
       return new Response("Unauthorized: Incorrect credentials", {
         status: 401,
@@ -234,12 +299,36 @@ Deno.serve(async (req) => {
     };
 
     if (req.method !== "GET" && req.method !== "HEAD") {
-      proxyInit.body = await req.clone().arrayBuffer();
+      if (Number(req.headers.get("Content-Length") || 0) > MAX_BODY_BYTES) {
+        return new Response("Request too large.", {
+          status: 413,
+          headers: corsHeaders,
+        });
+      }
+      const body = await req.arrayBuffer();
+      if (body.byteLength > MAX_BODY_BYTES) {
+        return new Response("Request too large.", {
+          status: 413,
+          headers: corsHeaders,
+        });
+      }
+      proxyInit.body = body;
     }
 
     const response = await fetch(targetUrl, proxyInit);
 
-    const resHeaders = new Headers(response.headers);
+    // Not every GitHub header: x-oauth-scopes and the token-expiration headers
+    // would tell the client what the secret token can do and when it expires.
+    const resHeaders = new Headers();
+    for (const h of [
+      "Content-Type",
+      "X-RateLimit-Remaining",
+      "X-RateLimit-Reset",
+      "Retry-After",
+    ]) {
+      const v = response.headers.get(h);
+      if (v) resHeaders.set(h, v);
+    }
     for (const k in corsHeaders) {
       resHeaders.set(k, corsHeaders[k]);
     }

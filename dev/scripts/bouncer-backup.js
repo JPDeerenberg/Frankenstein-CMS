@@ -34,6 +34,21 @@ const path = require("path");
 // Whitelist of GitHub requests the CMS may make through this bouncer.
 // Mirrors github_request_allowed() in bouncer.php and the Supabase function
 // (tests/bouncer.test.js keeps the implementations in sync).
+// Files a client may WRITE: the pages the CMS edits (.html/.htm) and image
+// uploads straight into img/. Never dotfiles/dot-folders (.github, .env …), never
+// scripts, styles, configs, or SVG (it can carry scripts).
+function isAllowedWritePath(parts) {
+  if (parts.length === 0) return false;
+  if (parts.some((p) => p.startsWith("."))) return false;
+  const name = parts[parts.length - 1].toLowerCase();
+  if (/\.html?$/.test(name)) return true;
+  return (
+    parts.length === 2 &&
+    parts[0] === "img" &&
+    /\.(png|jpe?g|gif|webp|avif|ico)$/.test(name)
+  );
+}
+
 function isAllowedGithubRequest(method, rawPath, owner, repo) {
   method = String(method).toUpperCase();
   if (/[\x00-\x20\\]/.test(rawPath)) return false;
@@ -60,7 +75,9 @@ function isAllowedGithubRequest(method, rawPath, owner, repo) {
   if (segments.length === 3) return readOnly;
   switch (segments[3]) {
     case "contents":
-      return readOnly || method === "PUT";
+      return (
+        readOnly || (method === "PUT" && isAllowedWritePath(decoded.slice(4)))
+      );
     case "commits":
       return readOnly;
     case "git":
@@ -70,6 +87,41 @@ function isAllowedGithubRequest(method, rawPath, owner, repo) {
   }
 }
 // BOUNCER-GUARD-END
+
+const MAX_BODY_BYTES = 8 * 1024 * 1024; // images are limited to 5 MB (+ base64)
+
+/**
+ * Failed-login limiter per client address. The process is long-running, so
+ * in-memory counters work well here. After `max` failures within `windowMs`
+ * the client gets 429 until the window has passed.
+ */
+function createFailureLimiter(max, windowMs) {
+  max = max || 10;
+  windowMs = windowMs || 15 * 60 * 1000;
+  const map = new Map();
+  return {
+    blocked(key, now) {
+      const f = map.get(key);
+      if (!f) return false;
+      if ((now === undefined ? Date.now() : now) - f.first > windowMs) {
+        map.delete(key);
+        return false;
+      }
+      return f.count >= max;
+    },
+    fail(key, now) {
+      now = now === undefined ? Date.now() : now;
+      const f = map.get(key);
+      if (!f || now - f.first > windowMs)
+        map.set(key, { first: now, count: 1 });
+      else f.count++;
+      if (map.size > 5000) map.clear(); // keep memory bounded
+    },
+    reset(key) {
+      map.delete(key);
+    },
+  };
+}
 
 /** Constant-time string comparison. */
 function safeEqual(a, b) {
@@ -100,6 +152,7 @@ function loadClients(env) {
 
 function createServer(env, clients) {
   const allowedOrigin = env.ALLOWED_ORIGIN || "*";
+  const limiter = createFailureLimiter();
   const failDelayMs =
     env.AUTH_FAIL_DELAY_MS !== undefined
       ? Number(env.AUTH_FAIL_DELAY_MS)
@@ -142,6 +195,20 @@ function createServer(env, clients) {
       return;
     }
 
+    // Behind a reverse proxy the socket address is the proxy: opt in with TRUST_PROXY=1
+    const ip =
+      (env.TRUST_PROXY === "1" &&
+        String(req.headers["x-forwarded-for"] || "")
+          .split(",")[0]
+          .trim()) ||
+      req.socket.remoteAddress ||
+      "unknown";
+    if (limiter.blocked(ip)) {
+      res.writeHead(429, { "Retry-After": "900" });
+      res.end("Too many failed attempts. Try again in a few minutes.");
+      return;
+    }
+
     const clientEmail = req.headers["site-email"];
     const clientPassword = req.headers["site-password"];
 
@@ -160,25 +227,35 @@ function createServer(env, clients) {
       };
     }
 
-    if (!tenant.email || !tenant.password || !tenant.token) {
-      res.writeHead(500);
-      res.end("Bouncer misconfigured: Missing credentials for this user.");
-      return;
+    const complete = tenant.email && tenant.password && tenant.token;
+    if (!complete) {
+      // Not a 500: that would answer instantly and reveal which emails exist
+      console.warn(
+        "Bouncer: no complete credentials for",
+        JSON.stringify(clientEmail),
+      );
     }
 
     if (
+      !complete ||
       !clientEmail ||
       !clientPassword ||
       !safeEqual(clientEmail, tenant.email) ||
       !safeEqual(clientPassword, tenant.password)
     ) {
-      console.warn(`Unauthorized access attempt for ${clientEmail}`);
+      limiter.fail(ip);
+      // JSON.stringify: a client-supplied email must not be able to forge log lines
+      console.warn(
+        `Unauthorized access attempt for ${JSON.stringify(clientEmail)}`,
+      );
       setTimeout(() => {
         res.writeHead(401);
         res.end("Unauthorized: Incorrect Email or Password");
       }, failDelayMs); // artificial delay slows down password guessing
       return;
     }
+
+    limiter.reset(ip);
 
     if (
       !isAllowedGithubRequest(req.method, githubPath, tenant.owner, tenant.repo)
@@ -227,11 +304,36 @@ function createServer(env, clients) {
 
     proxyReq.on("error", (e) => {
       console.error("Proxy error:", e.message);
+      if (res.headersSent) return; // already answered (e.g. 413)
       res.writeHead(502);
-      res.end(`Bouncer error: ${e.message}`);
+      res.end("Bouncer error: upstream request failed.");
     });
 
-    req.pipe(proxyReq);
+    // Forward the body, but never more than MAX_BODY_BYTES
+    if (Number(req.headers["content-length"] || 0) > MAX_BODY_BYTES) {
+      proxyReq.destroy();
+      res.writeHead(413);
+      res.end("Request too large.");
+      return;
+    }
+    let received = 0;
+    let rejected = false;
+    req.on("data", (chunk) => {
+      received += chunk.length;
+      if (received > MAX_BODY_BYTES) {
+        if (!rejected) {
+          rejected = true;
+          proxyReq.destroy();
+          res.writeHead(413);
+          res.end("Request too large.");
+        }
+        return;
+      }
+      if (!rejected) proxyReq.write(chunk);
+    });
+    req.on("end", () => {
+      if (!rejected) proxyReq.end();
+    });
   });
 }
 
@@ -240,6 +342,7 @@ module.exports = {
   safeEqual,
   createServer,
   loadClients,
+  createFailureLimiter,
 };
 
 if (require.main === module) {

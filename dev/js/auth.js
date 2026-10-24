@@ -5,6 +5,11 @@ async function saveConfigAndLogin() {
   const owner = document.getElementById("cfg-owner").value.trim();
   const repo = document.getElementById("cfg-repo").value.trim();
   if (!token || !owner || !repo) return alert("Please fill in all fields.");
+  if (!isValidRepoName(owner) || !isValidRepoName(repo)) {
+    return alert(
+      "Owner and repository may only contain letters, digits, '.', '-' and '_'.",
+    );
+  }
 
   const loginMsg = document.getElementById("login-msg");
   try {
@@ -56,12 +61,18 @@ function logout() {
 
 function applyExternalConfig(cfg) {
   if (!cfg) return;
-  if (cfg.owner) document.getElementById("cfg-owner").value = cfg.owner;
-  if (cfg.repo) document.getElementById("cfg-repo").value = cfg.repo;
+  // owner/repo end up inside API URLs: accept only well-formed names
+  if (isValidRepoName(cfg.owner))
+    document.getElementById("cfg-owner").value = cfg.owner;
+  if (isValidRepoName(cfg.repo))
+    document.getElementById("cfg-repo").value = cfg.repo;
   if (cfg.owner || cfg.repo) document.getElementById("cfg-token").focus();
 }
 
+// Only the page that embeds this CMS (iframe.html) may pre-fill owner/repo.
+// Messages from any other window (a page that opened or framed us) are ignored.
 window.addEventListener("message", (event) => {
+  if (event.source !== window.parent || window.parent === window) return;
   if (event.data && event.data.type === "frankenstein-config") {
     applyExternalConfig(event.data.config);
   }

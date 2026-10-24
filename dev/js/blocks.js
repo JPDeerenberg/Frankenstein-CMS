@@ -183,15 +183,15 @@ function columnsHtml(id, count, basis) {
 function sanitizeBlockUrl(url) {
   const u = String(url || "").trim();
   if (!u) return "#";
-  if (/^\s*(javascript|vbscript|data):/i.test(u)) return "#";
-  return u;
+  return isSafeUrl(u, "href", "A") ? u : "#";
 }
 
 /** An image path typed by the user -> a src that works from the page's folder. */
 function resolveBlockImage(value, pageDir) {
   const v = String(value || "").trim();
-  if (!v || /^(javascript|vbscript|data):/i.test(v))
+  if (!v || !isSafeUrl(v, "src", "IMG") || /^(data|blob):/i.test(v)) {
     return BLOCK_PLACEHOLDER_IMG;
+  }
   if (/^(https?:|\/\/|\/|\.\.?\/|#)/i.test(v)) return v;
   // a repo-root path such as img/photo.jpg (as shown after an upload)
   return relativePath(pageDir || "", v);

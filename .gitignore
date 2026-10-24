@@ -10,3 +10,6 @@ node_modules/
 .DS_Store
 sites.json
 clients.json
+sites.php
+.dev.vars
+.wrangler/

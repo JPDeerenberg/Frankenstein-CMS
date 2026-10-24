@@ -45,6 +45,13 @@
  *  • Only what the CMS needs is allowed: repo info, files, commit history and
  *    git trees/blobs of THAT site's repo. Everything else on the GitHub API is
  *    refused (403), so a client can't use the Worker to reach anything else.
+ *  • Passwords must be at least 12 characters (shorter ones are refused with a
+ *    setup message). After 10 wrong attempts an address is refused for 15 minutes
+ *    (best effort, per Worker instance). For a hard limit use your own domain +
+ *    a Cloudflare rate-limiting rule and disable the workers.dev address: see
+ *    SECURITY.md in the repository.
+ *  • Clients can only write pages (.html) and PNG/JPG/GIF/WebP/AVIF/ICO images in
+ *    img/; never .github/, scripts, configs or SVG.
  *  • Optional variable ALLOWED_ORIGIN = https://cms.your-domain.com restricts
  *    which website may call the Worker (default: any).
  *  • Troubleshooting: Worker → Logs shows errors. A 500 with a message
@@ -53,10 +60,55 @@
 
 const SESSION_TTL_SEC = 8 * 60 * 60; // after login the password isn't re-sent for 8 hours
 
+const MAX_BODY_BYTES = 8 * 1024 * 1024; // images are limited to 5 MB (+ base64)
+const FAIL_LIMIT = 10;
+const FAIL_WINDOW_MS = 15 * 60 * 1000;
+const MIN_PASSWORD_LENGTH = 12;
+
+// Failed-login throttle. Kept in memory of this Worker instance: a best-effort
+// speed bump, NOT a guarantee (Cloudflare runs many instances). For a hard limit
+// add a free "Rate limiting rule" in front of the Worker (see SECURITY.md) and
+// use long random passwords.
+const failures = new Map();
+
+function isBlocked(ip) {
+  const f = failures.get(ip);
+  if (!f) return false;
+  if (Date.now() - f.first > FAIL_WINDOW_MS) {
+    failures.delete(ip);
+    return false;
+  }
+  return f.count >= FAIL_LIMIT;
+}
+
+function recordFailure(ip) {
+  const now = Date.now();
+  const f = failures.get(ip);
+  if (!f || now - f.first > FAIL_WINDOW_MS)
+    failures.set(ip, { first: now, count: 1 });
+  else f.count++;
+  if (failures.size > 5000) failures.clear(); // keep memory bounded
+}
+
 // BOUNCER-GUARD-START
 // Whitelist of GitHub requests the CMS may make through this bouncer.
 // Mirrors github_request_allowed() in bouncer.php and the other bouncers
 // (tests/bouncer.test.js keeps the implementations in sync).
+// Files a client may WRITE: the pages the CMS edits (.html/.htm) and image
+// uploads straight into img/. Never dotfiles/dot-folders (.github, .env …), never
+// scripts, styles, configs, or SVG (it can carry scripts).
+function isAllowedWritePath(parts) {
+  if (parts.length === 0) return false;
+  if (parts.some((p) => p.startsWith("."))) return false;
+  const name = parts[parts.length - 1].toLowerCase();
+  if (/\.html?$/.test(name)) return true;
+  return (
+    parts.length === 2 &&
+    parts[0] === "img" &&
+    /\.(png|jpe?g|gif|webp|avif|ico)$/.test(name)
+  );
+}
+
 function isAllowedGithubRequest(method, rawPath, owner, repo) {
   method = String(method).toUpperCase();
   if (/[\x00-\x20\\]/.test(rawPath)) return false;
@@ -83,7 +135,9 @@ function isAllowedGithubRequest(method, rawPath, owner, repo) {
   if (segments.length === 3) return readOnly;
   switch (segments[3]) {
     case "contents":
-      return readOnly || method === "PUT";
+      return (
+        readOnly || (method === "PUT" && isAllowedWritePath(decoded.slice(4)))
+      );
     case "commits":
       return readOnly;
     case "git":
@@ -223,6 +277,14 @@ async function handle(request, env) {
   const email = (request.headers.get("Site-Email") || "").trim().toLowerCase();
   if (!email) return reply(400, "Missing Site-Email", cors);
 
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  if (isBlocked(ip)) {
+    return reply(429, "Too many failed attempts. Try again in a few minutes.", {
+      ...cors,
+      "Retry-After": "900",
+    });
+  }
+
   if (!env.SITES) {
     return reply(
       500,
@@ -265,6 +327,7 @@ async function handle(request, env) {
     }
   }
   if (!authenticated) {
+    recordFailure(ip);
     // slows down password guessing
     await sleep(
       env.AUTH_FAIL_DELAY_MS !== undefined
@@ -274,7 +337,18 @@ async function handle(request, env) {
     return reply(401, "Unauthorized: Incorrect credentials", cors);
   }
 
+  failures.delete(ip);
+
   // --- the login is valid; now check the site entry is complete ---
+  if (String(site.password).length < MIN_PASSWORD_LENGTH) {
+    return reply(
+      500,
+      {
+        message: `Bouncer setup: this site's password is shorter than ${MIN_PASSWORD_LENGTH} characters. Use a long random one.`,
+      },
+      cors,
+    );
+  }
   for (const field of ["owner", "repo"]) {
     if (!site[field]) {
       return reply(
@@ -330,7 +404,13 @@ async function handle(request, env) {
 
   const init = { method: request.method, headers: upstream };
   if (request.method !== "GET" && request.method !== "HEAD") {
+    if (Number(request.headers.get("Content-Length") || 0) > MAX_BODY_BYTES) {
+      return reply(413, { message: "Request too large." }, headers);
+    }
     init.body = await request.arrayBuffer();
+    if (init.body.byteLength > MAX_BODY_BYTES) {
+      return reply(413, { message: "Request too large." }, headers);
+    }
   }
 
   const res = await fetch(
