@@ -265,9 +265,9 @@ window.SEO = {
     }
   },
 
-  openModal: function () {
+  openModal: async function () {
     if (typeof currentPath !== "string" || !/\.html?$/i.test(currentPath)) {
-      alert("Open an HTML file first to edit SEO settings.");
+      await Dialog.alert("Open an HTML file first to edit SEO settings.");
       return;
     }
     this.refresh(); // page facts (H1, alt text) may have changed while editing

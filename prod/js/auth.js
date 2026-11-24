@@ -110,7 +110,8 @@ async function saveConfigAndLogin() {
     .value.trim();
 
   if (!email || !password) {
-    return alert("Please enter your Client Email and Site Password.");
+    await Dialog.alert("Please enter your Client Email and Site Password.");
+    return;
   }
 
   const urlCfg = getUrlConfig();
@@ -122,9 +123,10 @@ async function saveConfigAndLogin() {
   if (!bouncerUrl) bouncerUrl = urlCfg.bouncer;
   if (!backupBouncerUrl) backupBouncerUrl = urlCfg.backupBouncer;
   if (!bouncerUrl) {
-    return alert(
+    await Dialog.alert(
       "System Error: The Bouncer is not configured. Set bouncerUrl in frankenstein.config.json.",
     );
+    return;
   }
 
   const loginMsg = document.getElementById("login-msg");
@@ -204,8 +206,8 @@ async function saveConfigAndLogin() {
   }
 }
 
-function logout() {
-  if (confirm("Logout?")) {
+async function logout() {
+  if (await Dialog.confirm("Logout?")) {
     location.reload();
   }
 }
@@ -225,7 +227,7 @@ window.onload = async () => {
     applyExternalConfig(urlConfig);
   }
 
-  // Sessions are no longer restored through a blocking prompt() (browsers
+  // Sessions are no longer restored through a blocking browser dialog (browsers
   // suppress it inside iframes, and it cannot use the password manager).
   // The email is remembered; the password is entered in the normal form.
   try {

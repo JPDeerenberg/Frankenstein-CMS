@@ -61,23 +61,18 @@ window.fmt = function (type, val) {
   activeQuill.format(type, next, "user");
 };
 
-window.askLink = function () {
-  if (!activeQuill) return;
+window.askLink = async function () {
+  const quill = activeQuill;
+  if (!quill) return;
 
-  const range = activeQuill.getSelection();
+  const range = quill.getSelection();
   if (!range || range.length === 0) return;
 
-  const url = prompt(
+  const url = await Dialog.prompt(
     "Link URL (https://… or a page like about.html):",
     "https://",
   );
   if (url && url !== "https://") {
-    activeQuill.formatText(
-      range.index,
-      range.length,
-      "link",
-      url.trim(),
-      "user",
-    );
+    quill.formatText(range.index, range.length, "link", url.trim(), "user");
   }
 };

@@ -4,11 +4,15 @@ async function saveConfigAndLogin() {
   const token = document.getElementById("cfg-token").value.trim();
   const owner = document.getElementById("cfg-owner").value.trim();
   const repo = document.getElementById("cfg-repo").value.trim();
-  if (!token || !owner || !repo) return alert("Please fill in all fields.");
+  if (!token || !owner || !repo) {
+    await Dialog.alert("Please fill in all fields.");
+    return;
+  }
   if (!isValidRepoName(owner) || !isValidRepoName(repo)) {
-    return alert(
+    await Dialog.alert(
       "Owner and repository may only contain letters, digits, '.', '-' and '_'.",
     );
+    return;
   }
 
   const loginMsg = document.getElementById("login-msg");
@@ -52,8 +56,8 @@ async function saveConfigAndLogin() {
   }
 }
 
-function logout() {
-  if (confirm("Logout?")) {
+async function logout() {
+  if (await Dialog.confirm("Logout?")) {
     clearStoredConfig();
     location.reload();
   }

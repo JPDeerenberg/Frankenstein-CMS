@@ -244,7 +244,7 @@ function login(scripts, html, fetchImpl) {
               json: async () => ({}),
             };
       };
-      win.alert = (m) => alerts.push(String(m));
+      win.Dialog.alert = async (m) => alerts.push(String(m));
       win.showDashboard = () => (win.__dash = true);
     },
   });

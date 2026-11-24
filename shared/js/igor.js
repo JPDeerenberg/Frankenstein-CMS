@@ -1,6 +1,9 @@
 window.Igor = {
   init: function (quillInstance) {
     this.container = document.getElementById("igor-stats");
+    if (!this.instances) this.instances = [];
+    if (this.instances.indexOf(quillInstance) !== -1) return;
+    this.instances.push(quillInstance);
 
     if (!document.getElementById("igor-style-override")) {
       const style = document.createElement("style");
@@ -32,15 +35,24 @@ window.Igor = {
       document.head.appendChild(style);
     }
 
-    const debouncedScan =
-      typeof debounce === "function"
-        ? debounce(() => this.scan(quillInstance), 300)
-        : () => this.scan(quillInstance);
+    if (!this._debouncedScan) {
+      this._debouncedScan =
+        typeof debounce === "function"
+          ? debounce(() => this.scanAll(), 300)
+          : () => this.scanAll();
+    }
+    const debouncedScan = this._debouncedScan;
 
     quillInstance.on("text-change", debouncedScan);
     quillInstance.on("selection-change", (range) => {
       if (range) debouncedScan();
     });
+  },
+
+  /** Forget instances from the previous document before building a new one. */
+  reset: function () {
+    this.instances = [];
+    if (this.container) this.container.innerHTML = "";
   },
 
   /**
@@ -170,11 +182,10 @@ window.Igor = {
     return { label: "Dense", avg: avg };
   },
 
-  scan: function (q) {
-    if (!q || !this.container) return;
-
-    const text = q.getText();
-    const cleanText = text.trim();
+  /** Measure one Quill root. The caller decides whether to show or aggregate it. */
+  measure: function (q) {
+    if (!q || !q.root) return null;
+    const cleanText = String(q.getText() || "").trim();
 
     let wordCount = 0;
     if (cleanText.length > 0) {
@@ -194,8 +205,6 @@ window.Igor = {
       }
     }
 
-    const readTime = Math.ceil(wordCount / 200) || 0;
-
     const links = q.root.getElementsByTagName("a");
     let badLinks = 0;
     let externalLinks = 0;
@@ -212,14 +221,6 @@ window.Igor = {
       if (!img.alt || img.alt.trim() === "") missingAlt++;
     }
 
-    let headerIssue = null;
-    const h1Count = q.root.getElementsByTagName("h1").length;
-    if (h1Count > 1) headerIssue = "Too many H1s";
-    if (h1Count === 0 && wordCount > 50) headerIssue = "Missing H1";
-
-    const readability = this.readabilityScore(cleanText);
-
-    // Long-paragraph warning
     let longParas = 0;
     const paras = q.root.getElementsByTagName("p");
     for (let i = 0; i < paras.length; i++) {
@@ -227,16 +228,73 @@ window.Igor = {
       if (t.split(/\s+/).length > 120) longParas++;
     }
 
-    this.render({
+    return {
       words: wordCount,
-      time: readTime,
+      time: Math.ceil(wordCount / 200) || 0,
       badLinks: badLinks,
       missingAlt: missingAlt,
-      headerIssue: headerIssue,
       externalLinks: externalLinks,
-      readability: readability,
+      readability: this.readabilityScore(cleanText),
       longParas: longParas,
+      h1Count: q.root.getElementsByTagName("h1").length,
+      text: cleanText,
+    };
+  },
+
+  /** The whole page, not just the block that fired the last text-change. */
+  scanAll: function () {
+    if (!this.container) return null;
+    const stats = {
+      words: 0,
+      time: 0,
+      badLinks: 0,
+      missingAlt: 0,
+      headerIssue: null,
+      externalLinks: 0,
+      readability: null,
+      longParas: 0,
+    };
+    let h1 = 0;
+    const texts = [];
+    (this.instances || []).forEach((q) => {
+      const m = this.measure(q);
+      if (!m) return;
+      stats.words += m.words;
+      stats.badLinks += m.badLinks;
+      stats.missingAlt += m.missingAlt;
+      stats.externalLinks += m.externalLinks;
+      stats.longParas += m.longParas;
+      h1 += m.h1Count;
+      if (m.text) texts.push(m.text);
     });
+    stats.time = Math.ceil(stats.words / 200) || 0;
+    stats.readability = this.readabilityScore(texts.join(" "));
+    if (h1 > 1) stats.headerIssue = "Too many H1s";
+    else if (h1 === 0 && stats.words > 50) stats.headerIssue = "Missing H1";
+    this.render(stats);
+    return stats;
+  },
+
+  scan: function (q) {
+    const m = this.measure(q);
+    if (!m || !this.container) return null;
+    const stats = {
+      words: m.words,
+      time: m.time,
+      badLinks: m.badLinks,
+      missingAlt: m.missingAlt,
+      headerIssue:
+        m.h1Count > 1
+          ? "Too many H1s"
+          : m.h1Count === 0 && m.words > 50
+            ? "Missing H1"
+            : null,
+      externalLinks: m.externalLinks,
+      readability: m.readability,
+      longParas: m.longParas,
+    };
+    this.render(stats);
+    return stats;
   },
 
   render: function (stats) {

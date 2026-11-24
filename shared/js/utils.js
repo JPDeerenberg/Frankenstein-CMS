@@ -201,6 +201,79 @@ function resolvePath(base, rel) {
   return stack.join("/");
 }
 
+/** CSS URLs we can safely leave alone: external, inline, or already a URL. */
+function isRelativeCssUrl(target) {
+  const t = String(target || "").trim();
+  if (!t) return false;
+  if (/^(data:|blob:|#|https?:|\/\/|mailto:|about:|javascript:)/i.test(t))
+    return false;
+  // url(var(--x)) is not a file; the regex cannot parse it reliably.
+  return !/[()]/.test(t);
+}
+
+async function cachedBlobUrl(path, fetchRawBinary, resourceCache) {
+  if (resourceCache.has(path)) {
+    const cached = await resourceCache.get(path);
+    return cached || null;
+  }
+  const fetchPromise = (async function () {
+    try {
+      return await fetchRawBinary(path);
+    } catch (e) {
+      resourceCache.delete(path);
+      return null;
+    }
+  })();
+  cacheSet(resourceCache, path, fetchPromise);
+  const url = await fetchPromise;
+  if (url === null) resourceCache.delete(path);
+  return url;
+}
+
+/**
+ * Rewrite relative url(...) references in a fetched repo stylesheet to blob
+ * URLs, so previews show backgrounds/fonts without changing the saved file.
+ */
+async function rewriteCssUrls(
+  css,
+  stylesheetPath,
+  fetchRawBinary,
+  resourceCache,
+) {
+  if (!css || !fetchRawBinary) return css;
+  const dir = stylesheetPath.includes("/")
+    ? stylesheetPath.substring(0, stylesheetPath.lastIndexOf("/"))
+    : "";
+  const pattern = /url\(\s*(['"]?)([^'")]+)\1\s*\)/gi;
+  const targets = new Map();
+
+  css.replace(pattern, function (m, quote, raw) {
+    if (!isRelativeCssUrl(raw)) return m;
+    const cleaned = raw.trim();
+    const resolved = resolvePath(dir, safeDecode(stripQueryHash(cleaned)));
+    if (resolved && resolved !== stylesheetPath) {
+      targets.set(cleaned, resolved);
+    }
+    return m;
+  });
+  if (!targets.size) return css;
+
+  const replacements = new Map();
+  await Promise.all(
+    Array.from(targets).map(async function ([raw, resolved]) {
+      const blob = await cachedBlobUrl(resolved, fetchRawBinary, resourceCache);
+      if (blob) replacements.set(raw, blob);
+    }),
+  );
+  if (!replacements.size) return css;
+
+  return css.replace(pattern, function (m, quote, raw) {
+    const blob = replacements.get(raw.trim());
+    if (!blob) return m;
+    return "url(" + quote + blob + quote + ")";
+  });
+}
+
 /**
  * Scope CSS so body/html selectors target the CMS content wrapper
  * instead of the real document body. Handles body.class, body:hover,
@@ -324,6 +397,7 @@ async function listHtmlFilesRecursive(fetchFn, path, depth, maxDepth) {
  * @param {string} opts.currentDir
  * @param {Map} opts.resourceCache
  * @param {function} opts.fetchRaw - async (resolvedPath) => string|null
+ * @param {function} [opts.fetchRawBinary] - async (resolvedPath) => blobUrl|null
  * @returns {Promise[]} array of load promises
  */
 function collectStylesheetPromises(opts) {
@@ -332,6 +406,7 @@ function collectStylesheetPromises(opts) {
   const currentDir = opts.currentDir;
   const resourceCache = opts.resourceCache;
   const fetchRaw = opts.fetchRaw;
+  const fetchRawBinary = opts.fetchRawBinary;
   const promises = [];
 
   const links = doc.querySelectorAll('link[rel="stylesheet"]');
@@ -344,6 +419,7 @@ function collectStylesheetPromises(opts) {
     const p = (async function () {
       try {
         let css = null;
+        let stylesheetPath = null;
 
         if (isExternal) {
           // Try a direct fetch so body/html rules can be scoped; if the CDN
@@ -366,6 +442,7 @@ function collectStylesheetPromises(opts) {
             currentDir,
             safeDecode(stripQueryHash(href)),
           );
+          stylesheetPath = resolvedHref;
           if (resourceCache.has(resolvedHref)) {
             css = await resourceCache.get(resolvedHref);
           } else {
@@ -384,6 +461,14 @@ function collectStylesheetPromises(opts) {
         }
 
         if (!css) return;
+        if (stylesheetPath && fetchRawBinary) {
+          css = await rewriteCssUrls(
+            css,
+            stylesheetPath,
+            fetchRawBinary,
+            resourceCache,
+          );
+        }
         css = scopeCssToCms(css);
         const s = document.createElement("style");
         s.textContent = css;

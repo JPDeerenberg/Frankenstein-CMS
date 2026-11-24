@@ -64,6 +64,13 @@ function createEnv(scripts, opts) {
   let n = 0;
   w.URL.createObjectURL = () => `blob:https://cms.example.com/mock-${++n}`;
   w.URL.revokeObjectURL = () => {};
+  // The real module is loaded by index.html; tests that load a subset of the
+  // CMS can use this no-op surface, and override it when they assert dialogs.
+  w.Dialog = {
+    alert: async () => {},
+    confirm: async () => true,
+    prompt: async () => "",
+  };
   run(w, quillSource());
   if (opts.beforeScripts) opts.beforeScripts(w);
   scripts.forEach((s) => run(w, read(s)));

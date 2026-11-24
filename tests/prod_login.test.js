@@ -33,7 +33,7 @@ function setup(fields, handler) {
           urls.push(String(url));
           return handler(String(url), init);
         };
-        win.alert = (m) => alerts.push(m);
+        win.Dialog.alert = async (m) => alerts.push(m);
         win.showDashboard = () => (win.__dashboard = true);
       },
     },

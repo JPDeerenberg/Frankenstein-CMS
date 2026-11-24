@@ -8,7 +8,7 @@ const ROOT = path.join(__dirname, "..");
 const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
 
 test("Quill is shipped locally, is 1.3.7, and dev/prod copies are identical", () => {
-  for (const f of ["quill.min.js", "quill.core.css"]) {
+  for (const f of ["quill.min.js", "quill.core.css", "water.css"]) {
     assert.ok(
       fs
         .readFileSync(path.join(ROOT, "dev/vendor", f))
@@ -39,6 +39,15 @@ for (const env of ["dev", "prod"]) {
       /<link rel="stylesheet" href="vendor\/quill\.core\.css"/,
     );
     assert.match(
+      html,
+      /<link rel="stylesheet" href="vendor\/water\.css"/,
+      "water.css is served from the repo",
+    );
+    assert.ok(
+      !/cdn\.jsdelivr\.net\/npm\/water\.css/.test(html),
+      "water.css must not load from a CDN",
+    );
+    assert.match(
       read(`${env}/js/files.js`),
       /qCss\.href = "vendor\/quill\.core\.css"/,
     );
@@ -52,7 +61,8 @@ for (const env of ["dev", "prod"]) {
     const sw = read(`${env}/sw.js`);
     assert.ok(
       sw.includes("./vendor/quill.min.js") &&
-        sw.includes("./vendor/quill.core.css"),
+        sw.includes("./vendor/quill.core.css") &&
+        sw.includes("./vendor/water.css"),
     );
   });
 }

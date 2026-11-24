@@ -146,7 +146,6 @@ npm run check:parity # fail if a generated copy is out of date
 - **Phone use is built but only verified in an emulated browser.** The layout, installability files and drawer logic are tested; real-device behaviour (Android keyboards with Quill 1.x autocorrect, the native selection bubble) still needs a try-out on your phone.
 - **Not a native app.** The installable web app covers the roadmap's "app for mobile"; a store/APK wrapper (WebView/TWA) is not included.
 - **Blocks use inline styles** so they work anywhere; restyle them with your own CSS if you want them to match your design.
-- **Relative `url(...)` inside repo stylesheets** (fonts, background images) are not rewritten for the preview.
 - **Selection in a Shadow DOM** works in Chromium; Firefox/Safari have not been verified with this build.
 - **Autosave commits to your default branch** (every 30 s while there are changes), which also triggers a deploy on GitHub Pages. Leave it off unless you want that.
 - Files that are not valid UTF-8 are refused rather than risk corrupting them.

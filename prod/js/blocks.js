@@ -311,9 +311,9 @@ const Blocks = {
 
 let pendingBlock = null;
 
-function openBlocksModal() {
+async function openBlocksModal() {
   if (typeof activeDoc === "undefined" || !activeDoc) {
-    alert("Open a page first.");
+    await Dialog.alert("Open a page first.");
     return;
   }
   const grid = document.getElementById("blocks-grid");

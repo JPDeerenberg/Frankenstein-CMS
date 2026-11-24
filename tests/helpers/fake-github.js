@@ -23,7 +23,13 @@ function setup(initialFiles, opts) {
   opts = opts || {};
   const files = {};
   const calls = [];
-  const dialogs = { alerts: [], confirms: [], answer: true };
+  const dialogs = {
+    alerts: [],
+    confirms: [],
+    prompts: [],
+    answer: true,
+    promptAnswer: "",
+  };
   let shaCounter = 1;
   Object.entries(initialFiles).forEach(([p, v]) => {
     files[p] = {
@@ -108,12 +114,19 @@ function setup(initialFiles, opts) {
   const w = createEnv(SCRIPTS.slice(0, 0), {
     beforeScripts(win) {
       win.fetch = handler;
-      win.alert = (m) => dialogs.alerts.push(String(m));
-      win.confirm = (m) => {
-        dialogs.confirms.push(String(m));
-        return dialogs.answer;
+      win.Dialog = {
+        alert: async (m) => {
+          dialogs.alerts.push(String(m));
+        },
+        confirm: async (m) => {
+          dialogs.confirms.push(String(m));
+          return dialogs.answer;
+        },
+        prompt: async (m) => {
+          dialogs.prompts.push(String(m));
+          return dialogs.promptAnswer;
+        },
       };
-      win.prompt = () => "";
       run(win, "let autosaveTimer = null; const AUTOSAVE_INTERVAL = 30000;");
     },
   });

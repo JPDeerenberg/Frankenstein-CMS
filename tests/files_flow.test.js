@@ -337,3 +337,43 @@ maybe(
     assert.strictEqual(get.init.cache, "no-cache");
   },
 );
+
+maybe(
+  "relative images in repo stylesheets become blob URLs in the preview only",
+  async () => {
+    const env = setup({
+      "index.html": INDEX,
+      "css/site.css":
+        'body { background: url("../img/bg.png") } ' +
+        ".dot { background: url(data:image/png;base64,AAA) }",
+      "img/bg.png": Buffer.from([1, 2, 3]),
+    });
+    await env.w.loadFile("index.html");
+
+    const shadow = env.w.document.getElementById("editor-host").shadowRoot;
+    const styles = Array.from(shadow.querySelectorAll("style"))
+      .map((s) => s.textContent)
+      .join("\n");
+    assert.match(
+      styles,
+      /url\(["']?blob:/,
+      "repo background image should use a blob URL",
+    );
+    assert.ok(
+      !/\.\.\/img\/bg\.png/.test(styles),
+      "the relative repo path must not survive in the preview",
+    );
+    assert.match(
+      styles,
+      /url\(data:image\/png;base64,AAA\)/,
+      "inline data URLs are left alone",
+    );
+
+    const fetch = env.calls.find((c) => /contents\/img\/bg\.png/.test(c.url));
+    assert.ok(fetch, "the stylesheet image is fetched from the repo");
+    assert.ok(
+      !env.state.lastPut,
+      "previewing CSS must not write anything back",
+    );
+  },
+);

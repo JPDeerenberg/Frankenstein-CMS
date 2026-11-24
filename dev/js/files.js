@@ -192,7 +192,9 @@ async function loadFile(path, menuElement, opts) {
     !opts.force &&
     activeDoc &&
     isDirty &&
-    !confirm("You have unsaved changes. Discard them and open another file?")
+    !(await Dialog.confirm(
+      "You have unsaved changes. Discard them and open another file?",
+    ))
   ) {
     return;
   }
@@ -345,6 +347,14 @@ async function fetchRepoRaw(resolvedPath) {
   });
 }
 
+async function fetchRepoBinary(resolvedPath) {
+  const r = await fetchRepoRaw(resolvedPath);
+  if (!r.ok) return null;
+  const type = guessMimeType(resolvedPath, r.headers.get("Content-Type"));
+  const blob = new Blob([await r.arrayBuffer()], { type: type });
+  return URL.createObjectURL(blob);
+}
+
 /**
  * Build the editable preview for `html` and register it as the active document.
  * Used for normal loads and for restoring historical versions.
@@ -369,6 +379,7 @@ async function renderEditor(html, path, opts) {
   const host = document.getElementById("editor-host");
   shadow = host.shadowRoot || host.attachShadow({ mode: "open" });
   shadow.innerHTML = "";
+  if (window.Igor && window.Igor.reset) window.Igor.reset();
   // Everything the load adds lives in its own stage, so a superseded load
   // can never inject styles into a newer one.
   shadow.appendChild(stage);
@@ -384,18 +395,13 @@ async function renderEditor(html, path, opts) {
       const r = await fetchRepoRaw(resolvedHref);
       return r.ok ? await r.text() : null;
     },
+    fetchRawBinary: fetchRepoBinary,
   }).concat(
     collectImagePromises({
       pageWrapper: pageWrapper,
       currentDir: currentDir,
       resourceCache: resourceCache,
-      fetchRawBinary: async function (resolvedSrc) {
-        const r = await fetchRepoRaw(resolvedSrc);
-        if (!r.ok) return null;
-        const type = guessMimeType(resolvedSrc, r.headers.get("Content-Type"));
-        const blob = new Blob([await r.arrayBuffer()], { type: type });
-        return URL.createObjectURL(blob);
-      },
+      fetchRawBinary: fetchRepoBinary,
     }),
   );
   await Promise.allSettled(assetPromises);
@@ -492,7 +498,7 @@ function setupRegion(el, index) {
     setUnsaved();
   });
 
-  q.on("selection-change", function (range) {
+  q.on("selection-change", async function (range) {
     if (!range) {
       hideMenu();
       return;
@@ -501,7 +507,7 @@ function setupRegion(el, index) {
     activeRegion = region;
     if (!region.acknowledged) {
       region.acknowledged = true;
-      const ok = confirm(
+      const ok = await Dialog.confirm(
         "This block contains markup the editor can't preserve:\n\n  " +
           region.issues.join(", ") +
           "\n\nEditing it may remove that formatting. Edit anyway?",
@@ -558,7 +564,7 @@ async function handleSaveConflict(doc, isAuto) {
     setStatus("⚠ File changed on GitHub — autosave paused", "#f87171");
     return;
   }
-  const reload = confirm(
+  const reload = await Dialog.confirm(
     "This file was changed on GitHub (by someone else or in another tab).\n\n" +
       "Reload the latest version?\n(Your unsaved changes will be lost.)",
   );
@@ -619,7 +625,8 @@ async function slaOp(isAuto) {
         setTimeout(r, 600);
       });
       setSaved();
-      if (!isAuto) alert("✅ Saved to the void! (This is just a demo)");
+      if (!isAuto)
+        await Dialog.alert("✅ Saved to the void! (This is just a demo)");
       return;
     }
 
@@ -683,11 +690,11 @@ async function slaOp(isAuto) {
         setSaved();
       }
     }
-    if (!isAuto) alert("✅ Saved!");
+    if (!isAuto) await Dialog.alert("✅ Saved!");
   } catch (e) {
     console.error("Save failed", e);
     if (isAuto) setStatus("⚠ Autosave failed: " + e.message, "#f87171");
-    else alert("Error: " + e.message);
+    else await Dialog.alert("Error: " + e.message);
   } finally {
     isSaving = false;
     resetSaveButton(btn, isAuto);
@@ -749,7 +756,7 @@ async function applyStructureChange(mutate) {
   const doc = activeDoc;
   if (!doc) return false;
   if (isSaving) {
-    alert("Please wait until saving has finished.");
+    await Dialog.alert("Please wait until saving has finished.");
     return false;
   }
   const baked = buildHtmlFromEdits(doc, collectEdits(doc));
@@ -803,9 +810,8 @@ function moveBlockAt(index, delta) {
   });
 }
 
-function removeBlockAt(index) {
-  if (!confirm("Remove this block from the page?"))
-    return Promise.resolve(false);
+async function removeBlockAt(index) {
+  if (!(await Dialog.confirm("Remove this block from the page?"))) return false;
   return applyStructureChange(function (parsed) {
     return Blocks.remove(parsed, index) ? { focusBlock: null } : null;
   });
@@ -854,14 +860,14 @@ async function loadCommitHistory() {
         when.textContent = new Date(date).toLocaleString();
         li.appendChild(when);
       }
-      li.onclick = function () {
+      li.onclick = async function () {
         if (
-          confirm(
+          await Dialog.confirm(
             "Load this version into the editor?\nUnsaved changes will be lost.\n\n" +
               msg,
           )
         ) {
-          revertToCommit(c.sha);
+          await revertToCommit(c.sha);
         }
       };
       listEl.appendChild(li);
@@ -892,11 +898,11 @@ async function revertToCommit(sha) {
       path + " (version " + sha.slice(0, 7) + ")";
     finishRender();
     setUnsaved();
-    alert(
+    await Dialog.alert(
       "Historical version loaded into the editor. Click Save & Push to restore it on GitHub.",
     );
   } catch (e) {
-    alert("Revert failed: " + e.message);
+    await Dialog.alert("Revert failed: " + e.message);
   }
 }
 
@@ -918,11 +924,11 @@ async function handleImageUpload(event) {
   event.target.value = "";
   if (!file) return;
   if (config.isDemo) {
-    alert("Image upload is disabled in demo mode.");
+    await Dialog.alert("Image upload is disabled in demo mode.");
     return;
   }
   if (!activeDoc) {
-    alert("Open a page before uploading images.");
+    await Dialog.alert("Open a page before uploading images.");
     return;
   }
   // SVG is refused on purpose: an uploaded .svg can contain scripts that run
@@ -933,13 +939,13 @@ async function handleImageUpload(event) {
     ) ||
     !/\.(png|jpe?g|gif|webp|avif|ico)$/i.test(file.name)
   ) {
-    alert(
+    await Dialog.alert(
       "Please choose a PNG, JPG, GIF, WebP, AVIF or ICO image. (SVG is not allowed: it can contain scripts.)",
     );
     return;
   }
   if (file.size > 5 * 1024 * 1024) {
-    alert("Image too large (max 5MB).");
+    await Dialog.alert("Image too large (max 5MB).");
     return;
   }
 
@@ -984,7 +990,7 @@ async function handleImageUpload(event) {
         index: Math.max(0, target.getLength() - 1),
       };
       target.insertEmbed(range.index, "image", previewUrl, "user");
-      const alt = prompt(
+      const alt = await Dialog.prompt(
         "Describe the image for accessibility (alt text, optional):",
         "",
       );
@@ -997,7 +1003,7 @@ async function handleImageUpload(event) {
         await navigator.clipboard.writeText(relPath);
       } catch (e) {}
       setStatus("✓ Image uploaded to " + destPath, "#2ecc71");
-      alert(
+      await Dialog.alert(
         "Image uploaded to " +
           destPath +
           ".\nClick inside a text block first to insert images automatically. The path was copied: " +
@@ -1006,6 +1012,6 @@ async function handleImageUpload(event) {
     }
   } catch (e) {
     setStatus("⚠ " + e.message, "#f87171");
-    alert("Upload error: " + e.message);
+    await Dialog.alert("Upload error: " + e.message);
   }
 }
