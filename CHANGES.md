@@ -1,9 +1,33 @@
 # What changed in this overhaul
 
+## Cleanup branch
+
+- Removed the stale `frankenstein-security-update.zip`, `.jules/`, the unused
+  production encryption routines and the old Node bouncer's misleading
+  `dev/scripts/` location.
+- `shared/js/` is now the source of truth for 12 modules and
+  `shared/sw.template.js` for the service worker. `npm run sync` writes both
+  copies and fails with `--check` when a generated file is stale; the service
+  worker asset list and cache hash come from the real files.
+- Added Prettier enforcement, `npm run check`, CI (Node 24 + PHP 8.3),
+  `.editorconfig`, `.nvmrc` and a repository `AGENTS.md`.
+- Added `scripts/new-site.mjs`, `prod/worker/sites.example.json`, the Worker
+  `?action=check` endpoint, `Edited-by:` audit lines on PUT commits, and
+  `scripts/set-bouncer-origin.mjs` for locking down the production CSP.
+- Pinned the Supabase client to an exact version, vendored water.css, replaced
+  native alert/confirm/prompt with accessible in-page dialogs, made Igor
+  aggregate every region, and rewrote relative `url(...)` references in repo
+  stylesheets to blob URLs for the preview.
+- The preview remains a Shadow DOM. An iframe prototype was tested in Chrome but
+  Quill 1.3.7 returns no selection when initialised parent-side inside a
+  scriptless sandbox; see PLAN.md. No iframe flag was shipped.
+- Current suite: 196 tests, 185 passing, 11 PHP-only skips. The old dead
+  production-crypto tests were deliberately removed.
+
 ## Fixed: data loss / corrupted files
 
-- Saving rewrote the site's own `<style>` blocks (`body` → `#cms-page-content`) in your repo on every save. The file is now built from the original document + only the edited regions.
-- Every editable region was re-serialised through the editor, so untouched content changed too (`<br>` split into paragraphs, classes/spans dropped, `target="_blank"` added to all links, `<p>`/`<h1>` replaced by `<div><p>`…). Only regions you edit are written now, and block/inline containers keep their own tag.
+- Saving rewrote the site's own `<style>` blocks (`body` → `#cms-page-content`) in your repo on every save. The file is now built from the original document with only the edited regions replaced in the DOM; the whole document is still re-serialised, so whitespace/attribute quoting can normalise (source-preserving saves are still PLAN.md item 2).
+- Every editable region was re-serialised through the editor, so untouched content changed too (`<br>` split into paragraphs, classes/spans dropped, `target="_blank"` added to all links, `<p>`/`<h1>` replaced by `<div><p>`…). Now only regions you edit are changed, and block/inline containers keep their own tag.
 - Images inside editable regions were saved as giant `data:` URLs. Preview URLs are mapped back to the repo path.
 - Files over 1 MB opened blank and a save would have overwritten them with an empty page. They are read via the Git Blobs API; non-UTF-8 files are refused.
 - Clicking another file quickly could display one file but save into another (no load guard). Outdated loads are now discarded.
@@ -36,7 +60,7 @@
 - Dev and prod now share `files.js`, `doc.js` and friends (parity-checked) instead of drifting apart.
 - Service worker is network-first (old versions were served until a second reload).
 - SEO: live character counters, `.htm` support, document untouched unless SEO fields changed.
-- 76 tests (was 36): end-to-end editor flow with real Quill, bouncer allowlists in PHP/TS/Node, login regression.
+- The suite grew from 36 tests to 196 today: end-to-end editor flow with real Quill, bouncer allowlists in PHP/TS/Node, login regression.
 
 ## Added: Cloudflare Worker bouncer (multi-site made easy)
 
@@ -59,7 +83,7 @@
 
 ## Security review (see SECURITY.md)
 
-Everything below has a regression test that fails without the fix (174 tests in total).
+Everything below has a regression test that fails without the fix (196 tests in total).
 
 - **Credential phishing:** prod login no longer accepts `?bouncer=` from the address bar or another window; https required for passwords; owner/repo validated; `message` events only from the embedding parent.
 - **XSS hardening:** CSP is `script-src 'self'` (no inline); all 28 inline handlers and 2 inline scripts removed (`js/actions.js`, `js/boot.js`); repo HTML is sanitised in an inert document before use and imported, never re-parsed; URL checks see through tab/newline tricks; dev can only send the token to `api.github.com`.

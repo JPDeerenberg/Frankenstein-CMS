@@ -10,8 +10,8 @@ deploy. This file is for anyone (human or AI) changing it.
 - `prod/` — the same CMS for client logins. A bouncer holds the GitHub token.
   Bouncers live in `prod/worker/`: `cloudflare-bouncer.mjs` (recommended),
   `bouncer.php`, `supabase-bouncer.ts`, `node-bouncer.js`.
-- `shared/js/` — **source of truth** for the 11 modules shared by dev and prod:
-  `utils doc blocks pwa actions boot editor ui seo igor files`.
+- `shared/js/` — **source of truth** for the 12 modules shared by dev and prod:
+  `utils doc blocks pwa actions boot editor ui seo igor files dialog`.
 - `shared/sw.template.js` — service-worker template. `npm run sync` generates
   `dev/sw.js` and `prod/sw.js` with the real asset list and a content hash.
 - `shared/vendor/` — vendored assets copied into both `vendor/` folders.
@@ -28,6 +28,7 @@ npm test -- --test-name-pattern "..." # one test
 npm run sync                          # shared/ -> dev/ and prod/
 npm run check                         # sync check + Prettier check + tests
 npm run format                        # Prettier
+npm run prod:csp -- https://bouncer.example.com
 ```
 
 ## Rules
@@ -59,7 +60,7 @@ original file into an inert document, replaces the `innerHTML` of **only** the
 editable regions listed in `edits`, applies the SEO hooks, then serialises the
 whole document. Untouched regions keep their markup, but whole-file serialisation
 can still normalise whitespace and attribute quoting; source-preserving offset
-splicing is still open (PLAN.md item 6). Saves are built from the original
+splicing is still open (PLAN.md item 2). Saves are built from the original
 document, never from the preview.
 
 ## Where things live

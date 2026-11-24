@@ -52,10 +52,11 @@ The defences are layered so that one mistake is not enough:
 - **Supabase:** deploy with `--no-verify-jwt`, keep Row Level Security ON (the SQL does this),
   never put the service-role key anywhere but the function's secrets. Set `ALLOWED_ORIGIN`.
 - **prod CSP:** `prod/index.html` allows `connect-src https:` because your bouncer address is
-  not known in advance. Replace `https: http://localhost:* http://127.0.0.1:*` in that meta
-  tag with your exact bouncer origin(s), e.g. `https://bouncer.example.com`.
-- **Host your own copy of the CMS.** `dev/iframe.html` points at the original author's hosted
-  copy: whoever hosts the page you log in on can read what you type. Change its `src` to your own.
+  not known in advance. Run `npm run prod:csp -- https://bouncer.example.com` (repeat origins
+  as needed) to replace the permissive entries with exact origins. The script is idempotent.
+- **Host your own copy of the CMS.** The iframe template now derives its `src` from its own
+  location instead of pointing at the original author's copy, but whoever hosts the page you
+  log in on can still read what you type. Serve it from an origin you control.
 - **Clickjacking:** a `<meta>` tag cannot forbid framing and GitHub Pages cannot send headers.
   If your host can (Cloudflare Pages / Netlify `_headers`, nginx, Apache), add
   `Content-Security-Policy: frame-ancestors 'self'` (or your embedding site) and
@@ -91,8 +92,9 @@ The defences are layered so that one mistake is not enough:
   many addresses are only stopped by a WAF rate-limit rule and strong passwords.
 - **Clients can still publish arbitrary HTML** to their own site (that is what a page editor
   is), including `<script>`. Only give accounts to people you trust with their own site.
-- **No audit log and no 2FA** for client logins. Git history shows what was committed, but
-  every commit is made with the shared token.
+- **No authenticated audit log and no 2FA** for client logins. Commits now carry an
+  `Edited-by: <display name>` line, but the name comes from the site's `editor` or `name`
+  field and Git still records the shared token as author. Treat the label as a hint, not proof.
 - **Quill 1.x** has one disputed, unpatched advisory (CVE-2021-3163, event-handler attributes
   in HTML fed to an HTML editor). The CMS never gives Quill raw HTML and tests check that
   payloads do not survive; Quill 2 is the long-term answer.
