@@ -8,7 +8,7 @@ const { execFileSync } = require("child_process");
 
 const root = path.join(__dirname, "..");
 const vectors = require("./fixtures/bouncer-vectors.json");
-const nodeBouncer = require(path.join(root, "dev/scripts/bouncer-backup.js"));
+const nodeBouncer = require(path.join(root, "prod/worker/node-bouncer.js"));
 
 function between(text, start, end) {
   const a = text.indexOf(start);

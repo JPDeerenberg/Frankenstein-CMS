@@ -584,3 +584,18 @@ for (const env of ["dev", "prod"]) {
     assert.strictEqual(handled(base + "index.html", "PUT"), false);
   });
 }
+
+test("iframe wrappers never load the CMS from someone else's hosted copy", () => {
+  for (const env of ["dev", "prod"]) {
+    const html = read(`${env}/iframe.html`);
+    assert.ok(
+      !html.includes("github.io"),
+      `${env}/iframe.html must not point at a third-party GitHub Pages copy`,
+    );
+  }
+  // dev/iframe.html derives the URL from its own location instead.
+  assert.match(
+    read("dev/iframe.html"),
+    /new URL\("\.\/index\.html", location\.href\)/,
+  );
+});

@@ -206,7 +206,6 @@ async function saveConfigAndLogin() {
 
 function logout() {
   if (confirm("Logout?")) {
-    localStorage.removeItem("frankenstein_encrypted_cfg"); // legacy
     location.reload();
   }
 }
@@ -229,7 +228,6 @@ window.onload = async () => {
   // Sessions are no longer restored through a blocking prompt() (browsers
   // suppress it inside iframes, and it cannot use the password manager).
   // The email is remembered; the password is entered in the normal form.
-  localStorage.removeItem("frankenstein_encrypted_cfg"); // legacy
   try {
     const savedEmail = localStorage.getItem("frankenstein_email");
     const emailInput = document.getElementById("cfg-email");

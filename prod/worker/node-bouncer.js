@@ -10,7 +10,7 @@
  *   export CLIENT_EMAIL=admin@yoursite.com
  *   export CLIENT_PASSWORD=your-secure-password
  *   export GITHUB_OWNER=your-user GITHUB_REPO=your-repo   # recommended
- *   node bouncer-backup.js
+ *   node node-bouncer.js
  *
  * Multi tenant: create clients.json
  *   {
@@ -18,7 +18,7 @@
  *                            "github_owner": "user1", "github_repo": "site1" }
  *   }
  *   export CONFIG_FILE=clients.json
- *   node bouncer-backup.js
+ *   node node-bouncer.js
  *
  * Optional: ALLOWED_ORIGIN=https://cms.example.com restricts CORS (default *).
  * Only the GitHub endpoints the CMS needs are proxied.

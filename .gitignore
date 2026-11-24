@@ -7,6 +7,9 @@
 
 # dependencies & local secrets
 node_modules/
+
+# archives (old copies of the repo)
+*.zip
 .DS_Store
 sites.json
 clients.json
