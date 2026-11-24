@@ -1,6 +1,7 @@
 // GENERATED from shared/sw.template.js. Edit that file, then run: npm run sync
 /* Frankenstein CMS service worker — network first, cached copy only as an offline fallback */
-const CACHE = "frankenstein-cms-df21f422";
+const CACHE = "frankenstein-cms-51a79fcb";
+// prettier-ignore
 const ASSETS = [
   "./",
   "./index.html",

@@ -3,6 +3,7 @@
 **Because CloudCannon is too expensive and your static site deserves a soul.**
 
 [![DEMO](https://img.shields.io/badge/LIVE-DEMO-brightgreen?style=for-the-badge)](https://jpdeerenberg.github.io/Frankenstein-CMS/)
+[![CI](https://github.com/JPDeerenberg/Frankenstein-CMS/actions/workflows/ci.yml/badge.svg)](https://github.com/JPDeerenberg/Frankenstein-CMS/actions/workflows/ci.yml)
 
 Frankenstein CMS is a **zero-install, single-folder content management system** specifically built for static HTML sites hosted on GitHub. No database, no Node.js overhead, no monthly subscriptions. Just one folder to dominate your repo via the official GitHub API.
 

@@ -479,10 +479,18 @@ button.btn-secondary:hover {
   position: absolute;
   left: 0;
 }
-.igor-note.igor-ok::before { content: "✅"; }
-.igor-note.igor-warn::before { content: "⚠️"; }
-.igor-note.igor-err::before { content: "❌"; }
-.igor-note.igor-tip::before { content: "💡"; }
+.igor-note.igor-ok::before {
+  content: "✅";
+}
+.igor-note.igor-warn::before {
+  content: "⚠️";
+}
+.igor-note.igor-err::before {
+  content: "❌";
+}
+.igor-note.igor-tip::before {
+  content: "💡";
+}
 
 /* ---- Insert block dialog ---- */
 .blocks-grid {

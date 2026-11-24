@@ -53,7 +53,10 @@ test("ui.js state and navigation tests", async (t) => {
       console: console,
     };
 
-    const modCode = code.replace("let isDirty = false;", "var isDirty = false;");
+    const modCode = code.replace(
+      "let isDirty = false;",
+      "var isDirty = false;",
+    );
 
     vm.createContext(sandbox);
     vm.runInContext(modCode, sandbox);
@@ -93,9 +96,8 @@ test("ui.js state and navigation tests", async (t) => {
     () => {
       const sandbox = createSandbox();
       const loginScreen = sandbox.document.getElementById("login-screen");
-      const dashboardScreen = sandbox.document.getElementById(
-        "dashboard-screen",
-      );
+      const dashboardScreen =
+        sandbox.document.getElementById("dashboard-screen");
       loginScreen.classList.add("active");
       sandbox.showDashboard();
       assert.strictEqual(loginScreen.classList.contains("active"), false);

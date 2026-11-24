@@ -428,7 +428,7 @@ for (const env of ["dev", "prod"]) {
       "inline <script> blocks",
     );
     assert.ok(!/href\s*=\s*["']\s*javascript:/i.test(html));
-    const csp = html.match(/Content-Security-Policy" content="([^"]+)"/)[1];
+    const csp = html.match(/Content-Security-Policy"\s+content="([^"]+)"/)[1];
     const directive = (name) =>
       (csp.match(new RegExp(name + " ([^;]+)")) || [])[1];
     assert.strictEqual(

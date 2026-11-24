@@ -1,0 +1,5 @@
+node_modules
+**/vendor/
+*.zip
+package-lock.json
+**/*.php

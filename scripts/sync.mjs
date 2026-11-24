@@ -108,7 +108,7 @@ function buildSw(env, overrides) {
   return (
     SW_HEADER +
     text("shared/sw.template.js")
-      .replace("__ASSETS__", lines)
+      .replace("  /* __ASSETS__ */", lines)
       .replace("__CACHE_HASH__", cacheHash(env, assets, overrides))
   );
 }

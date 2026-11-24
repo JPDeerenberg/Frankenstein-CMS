@@ -3,11 +3,12 @@
   "private": true,
   "description": "Zero-install CMS for static HTML sites on GitHub",
   "scripts": {
-    "format": "prettier --write \"dev/**/*.{js,css,html,json}\" \"prod/**/*.{js,css,html,json,ts,php}\" \"tests/**/*.js\" \"*.md\" \"package.json\"",
-    "format:check": "prettier --check \"dev/**/*.{js,css,html,json}\" \"prod/**/*.{js,css,html,json,ts,php}\" \"tests/**/*.js\" \"*.md\" \"package.json\"",
+    "format": "prettier --write \"dev/**/*.{js,css,html,json}\" \"prod/**/*.{js,css,html,json,ts,mjs}\" \"shared/**/*.{js,css,html,json}\" \"scripts/**/*.{js,mjs}\" \"tests/**/*.js\" \"*.md\" \"package.json\" \".github/**/*.{yml,yaml}\"",
+    "format:check": "prettier --check \"dev/**/*.{js,css,html,json}\" \"prod/**/*.{js,css,html,json,ts,mjs}\" \"shared/**/*.{js,css,html,json}\" \"scripts/**/*.{js,mjs}\" \"tests/**/*.js\" \"*.md\" \"package.json\" \".github/**/*.{yml,yaml}\"",
     "test": "node --test tests/*.js",
     "check:parity": "node scripts/sync.mjs --check",
-    "sync": "node scripts/sync.mjs"
+    "sync": "node scripts/sync.mjs",
+    "check": "npm run check:parity && npm run format:check && npm test"
   },
   "dependencies": {
     "prettier": "^3.8.3"
@@ -15,5 +16,8 @@
   "devDependencies": {
     "fake-indexeddb": "^6.0.0",
     "jsdom": "^26.0.0"
+  },
+  "engines": {
+    "node": ">=22.18"
   }
 }

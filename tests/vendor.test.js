@@ -43,7 +43,7 @@ for (const env of ["dev", "prod"]) {
       /qCss\.href = "vendor\/quill\.core\.css"/,
     );
     // the CSP no longer needs to trust any script host
-    const csp = html.match(/Content-Security-Policy" content="([^"]+)"/)[1];
+    const csp = html.match(/Content-Security-Policy"\s+content="([^"]+)"/)[1];
     assert.match(csp, /script-src 'self';/);
     // Quill must be loaded (blocking) before the deferred CMS scripts that use it
     assert.ok(

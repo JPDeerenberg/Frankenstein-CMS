@@ -8,7 +8,7 @@ const { spawnSync } = require("node:child_process");
 const SYNC = path.join(__dirname, "../scripts/sync.mjs");
 const TEMPLATE = `const CACHE = "frankenstein-cms-__CACHE_HASH__";
 const ASSETS = [
-__ASSETS__
+  /* __ASSETS__ */
 ];
 `;
 

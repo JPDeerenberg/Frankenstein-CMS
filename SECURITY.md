@@ -5,11 +5,11 @@ what is protected, what you must configure yourself, and what is still a risk.
 
 ## How it works, and what an attacker would want
 
-| | dev/ (direct) | prod/ (bouncer) |
-|---|---|---|
-| Secret | your GitHub token, in the browser | clients only know email + password; the token stays on the bouncer |
-| Where it lives | encrypted in `localStorage`, key in IndexedDB (non-extractable) | in the bouncer: Cloudflare KV / Supabase table / `sites.php` |
-| Worst case if stolen | write access to the repos the token covers | write access to ONE repo's pages and images |
+|                      | dev/ (direct)                                                   | prod/ (bouncer)                                                    |
+| -------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Secret               | your GitHub token, in the browser                               | clients only know email + password; the token stays on the bouncer |
+| Where it lives       | encrypted in `localStorage`, key in IndexedDB (non-extractable) | in the bouncer: Cloudflare KV / Supabase table / `sites.php`       |
+| Worst case if stolen | write access to the repos the token covers                      | write access to ONE repo's pages and images                        |
 
 The browser is the weak spot: any script that runs on the CMS page can use the stored token.
 The defences are layered so that one mistake is not enough:
@@ -31,15 +31,15 @@ The defences are layered so that one mistake is not enough:
 ## Do this when you deploy
 
 - **Use a fine-grained GitHub token, one per repo.** GitHub → Settings → Developer settings →
-  *Fine-grained tokens* → Generate: *Only select repositories* → pick the one repo →
-  *Repository permissions*: **Contents: Read and write** (Metadata read is added automatically).
+  _Fine-grained tokens_ → Generate: _Only select repositories_ → pick the one repo →
+  _Repository permissions_: **Contents: Read and write** (Metadata read is added automatically).
   Give it an expiry (e.g. 90 days) and a reminder to renew it. Do **not** grant Workflows,
   Actions, Administration, or use a classic token with the `repo` scope: that reaches every
   repository you own. If a token leaks, revoke it and create a new one.
 - **Passwords: 12+ random characters per client** (the Cloudflare Worker refuses shorter ones).
   The built-in throttle (10 failures / 15 min per address) is a speed bump, not a wall.
 - **Cloudflare Worker:** serve it from **your own domain** (Worker → Settings → Domains &
-  Routes → Add custom domain), add a *Rate limiting rule* for that hostname in the Cloudflare
+  Routes → Add custom domain), add a _Rate limiting rule_ for that hostname in the Cloudflare
   dashboard (Security → WAF), and **disable the `workers.dev` address** (same page). WAF rules
   protect your domain; the plain `*.workers.dev` address would bypass them. Then use the custom
   domain as `bouncerUrl`.
@@ -64,21 +64,21 @@ The defences are layered so that one mistake is not enough:
 
 ## What the review found (and fixed)
 
-| Severity | Problem | Fix |
-|---|---|---|
-| High | prod login took the bouncer URL from `?bouncer=…`: a crafted link could send a client's password to an attacker | honoured only when framed by a same-origin page; https required; never from messages |
-| High | CSP had `'unsafe-inline'` and 28 inline handlers, so any HTML injection could run script and read the token | inline handlers/scripts removed, `script-src 'self'` |
-| High | repo HTML was loaded into the live page and sanitised afterwards (`<img onerror>` could fire first) | sanitised in an inert document, nodes imported, never re-parsed |
-| High | PHP read `sites.json` (passwords + tokens) from the public folder | refused; `sites.php` / parent-folder / env path; `.htaccess` |
-| Medium | clients could write any file in their repo (workflows, scripts) and upload SVG | write allowlist in all four bouncers; SVG refused |
-| Medium | unknown email answered differently from wrong password (Supabase, Node) | identical response and delay |
-| Medium | Supabase returned every GitHub header (token scopes, expiry); Node echoed upstream errors | short header list; generic error |
-| Medium | service worker could cache a same-origin bouncer's responses (repo contents) | only the app's own files are cached |
-| Medium | `message` events accepted from any window; owner/repo from URL unchecked | parent-only, validated names |
-| Medium | only a sleep against password guessing; sleep also ties up PHP workers | per-address throttle (429); shorter sleep |
-| Low | `java⇥script:` links slipped past the URL check | scheme read after removing invisible characters; allowlist |
-| Low | Quill 1.3.6 from a CDN (tabnabbing flaw) | Quill 1.3.7 bundled, no CDN |
-| Low | no request size limit | 8 MB cap |
+| Severity | Problem                                                                                                         | Fix                                                                                  |
+| -------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| High     | prod login took the bouncer URL from `?bouncer=…`: a crafted link could send a client's password to an attacker | honoured only when framed by a same-origin page; https required; never from messages |
+| High     | CSP had `'unsafe-inline'` and 28 inline handlers, so any HTML injection could run script and read the token     | inline handlers/scripts removed, `script-src 'self'`                                 |
+| High     | repo HTML was loaded into the live page and sanitised afterwards (`<img onerror>` could fire first)             | sanitised in an inert document, nodes imported, never re-parsed                      |
+| High     | PHP read `sites.json` (passwords + tokens) from the public folder                                               | refused; `sites.php` / parent-folder / env path; `.htaccess`                         |
+| Medium   | clients could write any file in their repo (workflows, scripts) and upload SVG                                  | write allowlist in all four bouncers; SVG refused                                    |
+| Medium   | unknown email answered differently from wrong password (Supabase, Node)                                         | identical response and delay                                                         |
+| Medium   | Supabase returned every GitHub header (token scopes, expiry); Node echoed upstream errors                       | short header list; generic error                                                     |
+| Medium   | service worker could cache a same-origin bouncer's responses (repo contents)                                    | only the app's own files are cached                                                  |
+| Medium   | `message` events accepted from any window; owner/repo from URL unchecked                                        | parent-only, validated names                                                         |
+| Medium   | only a sleep against password guessing; sleep also ties up PHP workers                                          | per-address throttle (429); shorter sleep                                            |
+| Low      | `java⇥script:` links slipped past the URL check                                                                 | scheme read after removing invisible characters; allowlist                           |
+| Low      | Quill 1.3.6 from a CDN (tabnabbing flaw)                                                                        | Quill 1.3.7 bundled, no CDN                                                          |
+| Low      | no request size limit                                                                                           | 8 MB cap                                                                             |
 
 ## Still a risk (read this)
 
@@ -103,5 +103,5 @@ The defences are layered so that one mistake is not enough:
 
 ## Reporting a problem
 
-Please report vulnerabilities privately to the repository owner (GitHub: *Security → Report
-a vulnerability*) instead of opening a public issue.
+Please report vulnerabilities privately to the repository owner (GitHub: _Security → Report
+a vulnerability_) instead of opening a public issue.

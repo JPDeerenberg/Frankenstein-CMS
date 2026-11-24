@@ -1,7 +1,8 @@
 /* Frankenstein CMS service worker — network first, cached copy only as an offline fallback */
 const CACHE = "frankenstein-cms-__CACHE_HASH__";
+// prettier-ignore
 const ASSETS = [
-__ASSETS__
+  /* __ASSETS__ */
 ];
 
 // Only the CMS's own files are ever cached. A bouncer hosted on THIS origin
