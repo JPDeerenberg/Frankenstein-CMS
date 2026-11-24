@@ -7,7 +7,7 @@
 // site password is not sent on every request after the first login.
 // Session TTL: 8 hours.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.2";
 import {
   encode as b64encode,
   decode as b64decode,

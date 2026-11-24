@@ -34,6 +34,12 @@
  *  Add  "token": "github_pat_…"  to a site whose repo needs its own token
  *  (a repo that is not on your account). Sites without "token" use the
  *  GITHUB_TOKEN secret from step 4.
+ *  Optional "editor": "Anna" is the name written in the commit's
+ *  "Edited-by:" line. Without it the CMS uses "name", then the email's
+ *  local part.
+ *  Generate an entry with:
+ *    node scripts/new-site.mjs "Anna's Bakery" anna@bakery.com me/bakery
+ *  Add --own-token to include the per-site token field.
  *  Changes apply within about a minute (KV is cached briefly).
  *  Remove a client = delete their KV entry. Change a password = edit "password"
  *  (this also logs that client out everywhere).
@@ -147,6 +153,35 @@ function isAllowedGithubRequest(method, rawPath, owner, repo) {
   }
 }
 // BOUNCER-GUARD-END
+
+/* ---------- audit label ---------- */
+
+// A commit message is not a place for a second header or a new JSON field.
+// Collapse every line break/control character and cap the label's length.
+function commitLabel(site, email) {
+  const raw = site.editor || site.name || String(email).split("@")[0];
+  return (
+    String(raw)
+      .replace(/[\u0000-\u001f\u007f]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 100) || "client"
+  );
+}
+
+// GitHub's contents API takes JSON. Invalid/non-JSON bodies are forwarded
+// untouched so GitHub can return its own error instead of the bouncer guessing.
+function appendEditedBy(body, label) {
+  let data;
+  try {
+    data = JSON.parse(new TextDecoder().decode(body));
+  } catch {
+    return body;
+  }
+  if (!data || typeof data.message !== "string") return body;
+  data.message = `${data.message}\n\nEdited-by: ${label}`;
+  return new TextEncoder().encode(JSON.stringify(data));
+}
 
 /* ---------- small helpers ---------- */
 
@@ -382,6 +417,37 @@ async function handle(request, env) {
     );
   }
 
+  // Setup check: can this site's token see its repo, and may it push?
+  // Only booleans and the repo name go back; the token never does.
+  if (action === "check") {
+    const repoRes = await fetch(
+      `https://api.github.com/repos/${encodeURIComponent(site.owner)}/${encodeURIComponent(site.repo)}`,
+      {
+        headers: new Headers({
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "User-Agent": "Frankenstein-CMS-Cloudflare-Bouncer",
+        }),
+      },
+    );
+    let data = null;
+    try {
+      data = await repoRes.json();
+    } catch {
+      data = null;
+    }
+    return reply(
+      200,
+      {
+        ok: repoRes.ok,
+        repo: `${site.owner}/${site.repo}`,
+        canWrite: Boolean(data && data.permissions && data.permissions.push),
+        tokenValid: repoRes.status !== 401,
+      },
+      headers,
+    );
+  }
+
   if (!path) return reply(400, { message: "Missing path" }, headers);
 
   if (!isAllowedGithubRequest(request.method, path, site.owner, site.repo)) {
@@ -410,6 +476,15 @@ async function handle(request, env) {
     init.body = await request.arrayBuffer();
     if (init.body.byteLength > MAX_BODY_BYTES) {
       return reply(413, { message: "Request too large." }, headers);
+    }
+    // PUT only. DELETE is deliberately not in the allowlist, so there is no
+    // audit label to add for a delete.
+    const parts = path
+      .split("?")[0]
+      .split("/")
+      .filter((s) => s !== "");
+    if (request.method === "PUT" && parts[3] === "contents") {
+      init.body = appendEditedBy(init.body, commitLabel(site, email));
     }
   }
 

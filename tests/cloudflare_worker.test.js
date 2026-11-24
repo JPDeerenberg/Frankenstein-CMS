@@ -221,7 +221,7 @@ test("a client can only reach their own repo, and only what the CMS needs", asyn
   }
 });
 
-test("saving a file: PUT body and content type reach GitHub unchanged", async () => {
+test("saving a file: PUT body and content type reach GitHub with an Edited-by label", async () => {
   const body = JSON.stringify({
     message: "Update",
     content: "aGk=",
@@ -242,7 +242,175 @@ test("saving a file: PUT body and content type reach GitHub unchanged", async ()
     upstream[0].init.headers.get("Content-Type"),
     "application/json",
   );
+  const sent = JSON.parse(Buffer.from(upstream[0].init.body).toString());
+  assert.deepStrictEqual(sent, {
+    message: "Update\n\nEdited-by: Anna's Bakery",
+    content: "aGk=",
+    sha: "abc",
+  });
+});
+
+test("the Edited-by label prefers editor, then name, then the email local part", async () => {
+  const send = async (email, password) => {
+    const { upstream } = await call(makeEnv(), {
+      method: "PUT",
+      query: q("/repos/me/bakery/contents/a.html"),
+      headers: {
+        ...login(email, password),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ message: "Update", content: "aGk=" }),
+    });
+    return JSON.parse(Buffer.from(upstream[0].init.body).toString()).message;
+  };
+
+  assert.strictEqual(
+    await send("anna@bakery.com", "pw-anna-123456"),
+    "Update\n\nEdited-by: Anna's Bakery",
+  );
+  SITES["carol@x.com"] = {
+    name: "Carol Co",
+    editor: "Carol",
+    password: "pw-carol-123456",
+    owner: "me",
+    repo: "bakery",
+    token: "t",
+  };
+  try {
+    assert.strictEqual(
+      await send("carol@x.com", "pw-carol-123456"),
+      "Update\n\nEdited-by: Carol",
+    );
+  } finally {
+    delete SITES["carol@x.com"];
+  }
+  SITES["noname@x.com"] = {
+    password: "pw-noname-12345",
+    owner: "me",
+    repo: "bakery",
+    token: "t",
+  };
+  try {
+    assert.strictEqual(
+      await send("noname@x.com", "pw-noname-12345"),
+      "Update\n\nEdited-by: noname",
+    );
+  } finally {
+    delete SITES["noname@x.com"];
+  }
+});
+
+test("the audit label cannot inject a header, newline or extra field", async () => {
+  SITES["evil@x.com"] = {
+    name: "Evil",
+    editor: "Eve\n\nEdited-by: Someone-Else\r\nX-Injected: yes",
+    password: "pw-evil-1234567",
+    owner: "me",
+    repo: "bakery",
+    token: "t",
+  };
+  try {
+    const { upstream } = await call(makeEnv(), {
+      method: "PUT",
+      query: q("/repos/me/bakery/contents/x.html"),
+      headers: {
+        ...login("evil@x.com", "pw-evil-1234567"),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ message: "Update", content: "aGk=" }),
+    });
+    const sent = JSON.parse(Buffer.from(upstream[0].init.body).toString());
+    assert.strictEqual(
+      sent.message,
+      "Update\n\nEdited-by: Eve Edited-by: Someone-Else X-Injected: yes",
+    );
+    assert.ok(!sent.message.includes("\nEdited-by: Someone-Else"));
+    assert.deepStrictEqual(Object.keys(sent), ["message", "content"]);
+  } finally {
+    delete SITES["evil@x.com"];
+  }
+});
+
+test("a PUT with an invalid JSON body is forwarded byte-for-byte", async () => {
+  const body = "this is not json\n";
+  const { res, upstream } = await call(makeEnv(), {
+    method: "PUT",
+    query: q("/repos/me/bakery/contents/a.html"),
+    headers: {
+      ...login("anna@bakery.com", "pw-anna-123456"),
+      "Content-Type": "application/json",
+    },
+    body,
+  });
+  assert.strictEqual(res.status, 200);
   assert.strictEqual(Buffer.from(upstream[0].init.body).toString(), body);
+});
+
+test("?action=check reports repo permission without leaking the token", async () => {
+  const { res, upstream } = await call(makeEnv(), {
+    query: "?action=check",
+    headers: login("anna@bakery.com", "pw-anna-123456"),
+    githubBody: '{"permissions":{"push":true}}',
+  });
+  assert.strictEqual(res.status, 200);
+  assert.deepStrictEqual(await res.json(), {
+    ok: true,
+    repo: "me/bakery",
+    canWrite: true,
+    tokenValid: true,
+  });
+  assert.strictEqual(upstream[0].url, "https://api.github.com/repos/me/bakery");
+  assert.strictEqual(
+    upstream[0].init.headers.get("Authorization"),
+    "Bearer ghp_site_token",
+  );
+});
+
+test("?action=check distinguishes read-only, missing and bad tokens", async () => {
+  const readOnly = await call(makeEnv(), {
+    query: "?action=check",
+    headers: login("anna@bakery.com", "pw-anna-123456"),
+    githubBody: '{"permissions":{"push":false}}',
+  });
+  assert.deepStrictEqual(await readOnly.res.json(), {
+    ok: true,
+    repo: "me/bakery",
+    canWrite: false,
+    tokenValid: true,
+  });
+
+  const missing = await call(makeEnv(), {
+    query: "?action=check",
+    headers: login("anna@bakery.com", "pw-anna-123456"),
+    githubStatus: 404,
+    githubBody: '{"message":"Not Found"}',
+  });
+  assert.deepStrictEqual(await missing.res.json(), {
+    ok: false,
+    repo: "me/bakery",
+    canWrite: false,
+    tokenValid: true,
+  });
+
+  const badToken = await call(makeEnv(), {
+    query: "?action=check",
+    headers: login("anna@bakery.com", "pw-anna-123456"),
+    githubStatus: 401,
+    githubBody: '{"message":"Bad credentials"}',
+  });
+  assert.deepStrictEqual(await badToken.res.json(), {
+    ok: false,
+    repo: "me/bakery",
+    canWrite: false,
+    tokenValid: false,
+  });
+
+  const unauthorized = await call(makeEnv(), {
+    query: "?action=check",
+    headers: login("anna@bakery.com", "wrong-password"),
+  });
+  assert.strictEqual(unauthorized.res.status, 401);
+  assert.strictEqual(unauthorized.upstream.length, 0);
 });
 
 test("GitHub errors (409, 404) pass through with their status", async () => {

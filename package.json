@@ -8,6 +8,7 @@
     "test": "node --test tests/*.js",
     "check:parity": "node scripts/sync.mjs --check",
     "sync": "node scripts/sync.mjs",
+    "prod:csp": "node scripts/set-bouncer-origin.mjs",
     "check": "npm run check:parity && npm run format:check && npm test"
   },
   "dependencies": {

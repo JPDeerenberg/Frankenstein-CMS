@@ -96,9 +96,9 @@ The defences are layered so that one mistake is not enough:
 - **Quill 1.x** has one disputed, unpatched advisory (CVE-2021-3163, event-handler attributes
   in HTML fed to an HTML editor). The CMS never gives Quill raw HTML and tests check that
   payloads do not survive; Quill 2 is the long-term answer.
-- **Third parties:** the dashboard stylesheet comes from jsDelivr (pinned with an integrity
-  hash); the Supabase function imports `@supabase/supabase-js` from esm.sh (pin a full version
-  if you deploy it). Sites' own external stylesheets are loaded in the preview.
+- **Third parties:** the Supabase function imports `@supabase/supabase-js@2.119.2` from
+  esm.sh (an exact version, so a new release cannot change what runs). Sites' own external
+  stylesheets are loaded in the preview.
 - `style-src` still allows inline styles and any https stylesheet (needed to show your site).
 
 ## Reporting a problem

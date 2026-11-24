@@ -1,0 +1,16 @@
+{
+  "anna@bakery.com": {
+    "name": "Anna's Bakery",
+    "editor": "Anna",
+    "password": "replace-with-a-long-random-password",
+    "owner": "your-github-user",
+    "repo": "bakery-site"
+  },
+  "bob@shop.com": {
+    "name": "Bob's Shop",
+    "password": "another-long-random-password",
+    "owner": "your-github-user",
+    "repo": "shop-site",
+    "token": "github_pat_..."
+  }
+}
