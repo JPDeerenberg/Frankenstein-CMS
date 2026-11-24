@@ -1,3 +1,4 @@
+// GENERATED from shared/js/doc.js. Edit that file, then run: npm run sync
 // Turning editor state back into a clean HTML document.
 //
 // Design rule: a saved file is the ORIGINAL document with only the regions the

@@ -1,3 +1,4 @@
+// GENERATED from shared/js/files.js. Edit that file, then run: npm run sync
 // File operations, editor rendering and saving.
 // Shared by dev/ and prod/ — the only environment-specific part is
 // apiFetch() in api.js (direct GitHub vs. the bouncer).

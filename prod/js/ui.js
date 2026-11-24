@@ -1,3 +1,4 @@
+// GENERATED from shared/js/ui.js. Edit that file, then run: npm run sync
 // UI state management
 
 let isDirty = false;

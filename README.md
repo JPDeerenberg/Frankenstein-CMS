@@ -51,7 +51,7 @@ Perfect for personal projects or developers who want to manage their own sites. 
 **Setup (`dev/`):**
 
 1. Add `data-editable` attributes to your HTML.
-2. Create a **fine-grained** [GitHub token](https://github.com/settings/personal-access-tokens/new): *Only select repositories* → your one repo → *Contents: Read and write*. Avoid the classic `repo`-scope token: it can reach every repository you own. (See [SECURITY.md](SECURITY.md).)
+2. Create a **fine-grained** [GitHub token](https://github.com/settings/personal-access-tokens/new): _Only select repositories_ → your one repo → _Contents: Read and write_. Avoid the classic `repo`-scope token: it can reach every repository you own. (See [SECURITY.md](SECURITY.md).)
 3. Open `dev/index.html` (or your iframe/URL link) and enter your Token. The repo details will pre-fill if you used Method B or C.
 
 ### 2. The `prod/` Version (For Agencies & Clients)
@@ -87,8 +87,6 @@ Perfect if you build websites for clients. It uses a **Serverless Bouncer** (Sup
 
 ---
 
-
-
 ---
 
 ## 🔐 Security model (prod bouncer)
@@ -97,14 +95,14 @@ See **[SECURITY.md](SECURITY.md)** for the full picture: how the CMS protects to
 
 The **bouncer** holds GitHub tokens server-side. Clients never see the token.
 
-| Mechanism | Purpose |
-|-----------|---------|
-| Email + site password | Initial authentication |
-| `X-Session-Token` (HMAC, 8h) | After login, password is not resent on every API call |
-| Artificial delay on bad auth | Slows brute force |
-| Request allowlist | The bouncer only forwards what the CMS needs (repo info, `contents`, `commits`, git `trees`/`blobs`; writes only to `contents`) and, when `github_owner`/`github_repo` are set, only for that repo. It is not an open GitHub API proxy |
-| Constant-time password check | PHP and Node compare in constant time; PHP also accepts `password_hash()` values in `sites.json` |
-| `sites.json` / Supabase `sites` table | Per-client token storage |
+| Mechanism                             | Purpose                                                                                                                                                                                                                                |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Email + site password                 | Initial authentication                                                                                                                                                                                                                 |
+| `X-Session-Token` (HMAC, 8h)          | After login, password is not resent on every API call                                                                                                                                                                                  |
+| Artificial delay on bad auth          | Slows brute force                                                                                                                                                                                                                      |
+| Request allowlist                     | The bouncer only forwards what the CMS needs (repo info, `contents`, `commits`, git `trees`/`blobs`; writes only to `contents`) and, when `github_owner`/`github_repo` are set, only for that repo. It is not an open GitHub API proxy |
+| Constant-time password check          | PHP and Node compare in constant time; PHP also accepts `password_hash()` values in `sites.json`                                                                                                                                       |
+| `sites.json` / Supabase `sites` table | Per-client token storage                                                                                                                                                                                                               |
 
 ### CORS
 
@@ -124,19 +122,20 @@ Default bouncer CORS is permissive (`Access-Control-Allow-Origin: *`) so agency 
 
 **⚙️ Page settings (SEO).** Beside title and description you can now set the canonical URL, the page language, a "hide from search engines" switch and the social-sharing title, description and image (a share image also adds a `twitter:card` tag). A live Google-style preview shows the result, and 🧟 Igor reviews the fields (title/description length, missing share image, non-absolute URLs, no or several H1s, images without alt text). Only fields you change are written to the page.
 
-**➕ Insert block.** The sidebar's *Insert block* button adds a ready-made section: hero, text section, image + text (either side), two or three columns, quote, call to action, contact, divider. Choose where it goes (after the text block you last clicked, or the end of the page); blocks that need a link, image or email ask for it first. Every text part of a block is editable like the rest of the page, and each block shows ▲ ▼ 🗑 controls in the preview to move or remove it. Blocks are plain HTML with small inline styles that inherit your colours, marked with a `data-cms-block` attribute so the CMS can find them again. They are inserted *next to* a text block rather than inside it: the text editor cannot hold arbitrary components.
+**➕ Insert block.** The sidebar's _Insert block_ button adds a ready-made section: hero, text section, image + text (either side), two or three columns, quote, call to action, contact, divider. Choose where it goes (after the text block you last clicked, or the end of the page); blocks that need a link, image or email ask for it first. Every text part of a block is editable like the rest of the page, and each block shows ▲ ▼ 🗑 controls in the preview to move or remove it. Blocks are plain HTML with small inline styles that inherit your colours, marked with a `data-cms-block` attribute so the CMS can find them again. They are inserted _next to_ a text block rather than inside it: the text editor cannot hold arbitrary components.
 
-**📱 On your phone.** The dashboard has a phone layout (slide-in file drawer, large touch targets, formatting bar docked to the bottom edge) and installs as an app: in Chrome choose **⋮ → Install app** (or tap *📲 Install app* in the menu when it appears); on iOS use **Share → Add to Home Screen**. It runs full-screen and keeps working as a normal web app, so there is nothing to build or publish.
+**📱 On your phone.** The dashboard has a phone layout (slide-in file drawer, large touch targets, formatting bar docked to the bottom edge) and installs as an app: in Chrome choose **⋮ → Install app** (or tap _📲 Install app_ in the menu when it appears); on iOS use **Share → Add to Home Screen**. It runs full-screen and keeps working as a normal web app, so there is nothing to build or publish.
 
 ## 🧪 Development
 
 ```bash
 npm install          # jsdom and fake-indexeddb are dev-only (tests)
 npm test             # unit + end-to-end tests (the real bundled Quill in jsdom, fake GitHub API)
-npm run check:parity # dev/ and prod/ share files.js, doc.js, utils.js … and must stay identical
+npm run sync         # regenerate dev/ and prod/ from shared/
+npm run check:parity # fail if a generated copy is out of date
 ```
 
-`files.js`, `doc.js`, `editor.js`, `ui.js`, `seo.js`, `utils.js` and `sw.js` are shared by `dev/` and `prod/`; only login (`auth.js`, `config.js`) and the transport (`api.js`) differ. After editing a shared file, copy it to the other folder (the parity check tells you when you forgot). Also run `git rm -r --cached node_modules` once if `node_modules/` was committed.
+`files.js`, `doc.js`, `editor.js`, `ui.js`, `seo.js`, `utils.js` and `sw.js` are shared by `dev/` and `prod/`; only login (`auth.js`, `config.js`) and the transport (`api.js`) differ. **Edit the sources in `shared/js/` and `shared/sw.template.js`, then run `npm run sync`.** The generated copies in `dev/js/` and `prod/js/` are committed so the deployed folders work without a build step; never edit them by hand (`npm run check:parity` catches it). The service-worker cache name is derived from the cached files, so it refreshes automatically. Also run `git rm -r --cached node_modules` once if `node_modules/` was committed.
 
 ## ⚠️ Known limitations
 

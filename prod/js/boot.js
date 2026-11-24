@@ -1,3 +1,4 @@
+// GENERATED from shared/js/boot.js. Edit that file, then run: npm run sync
 // Start-up code that used to be inline in index.html (inline scripts would need
 // 'unsafe-inline' in the Content-Security-Policy).
 

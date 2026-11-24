@@ -1,3 +1,4 @@
+// GENERATED from shared/js/actions.js. Edit that file, then run: npm run sync
 // Event dispatcher. index.html contains NO inline event handlers and NO inline
 // scripts: they would force 'unsafe-inline' into the Content-Security-Policy,
 // which switches off its protection against injected scripts (the thing that

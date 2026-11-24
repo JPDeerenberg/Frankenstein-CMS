@@ -6,7 +6,8 @@
     "format": "prettier --write \"dev/**/*.{js,css,html,json}\" \"prod/**/*.{js,css,html,json,ts,php}\" \"tests/**/*.js\" \"*.md\" \"package.json\"",
     "format:check": "prettier --check \"dev/**/*.{js,css,html,json}\" \"prod/**/*.{js,css,html,json,ts,php}\" \"tests/**/*.js\" \"*.md\" \"package.json\"",
     "test": "node --test tests/*.js",
-    "check:parity": "node scripts/check-parity.js"
+    "check:parity": "node scripts/sync.mjs --check",
+    "sync": "node scripts/sync.mjs"
   },
   "dependencies": {
     "prettier": "^3.8.3"

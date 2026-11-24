@@ -1,3 +1,4 @@
+// GENERATED from shared/js/pwa.js. Edit that file, then run: npm run sync
 // Phone support: the collapsible sidebar and the "Install app" button.
 
 let deferredInstallPrompt = null;

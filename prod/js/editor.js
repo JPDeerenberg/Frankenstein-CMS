@@ -1,3 +1,4 @@
+// GENERATED from shared/js/editor.js. Edit that file, then run: npm run sync
 // Editor state and Quill text formatting
 
 let currentSha = "";

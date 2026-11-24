@@ -1,3 +1,4 @@
+// GENERATED from shared/js/seo.js. Edit that file, then run: npm run sync
 // Page settings: SEO + social sharing fields, live preview, and Igor's review.
 //
 // Only fields the user actually changed are written to the document; the

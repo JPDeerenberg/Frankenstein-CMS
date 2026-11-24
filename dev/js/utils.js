@@ -1,3 +1,4 @@
+// GENERATED from shared/js/utils.js. Edit that file, then run: npm run sync
 // Utility functions for encoding, decoding, and general helpers
 
 /**

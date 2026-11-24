@@ -1,3 +1,4 @@
+// GENERATED from shared/js/blocks.js. Edit that file, then run: npm run sync
 // Block library + the document operations behind "Insert block".
 //
 // A block is a ready-made piece of HTML (hero, columns, quote …). Its text

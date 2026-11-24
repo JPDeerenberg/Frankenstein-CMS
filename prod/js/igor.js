@@ -1,3 +1,4 @@
+// GENERATED from shared/js/igor.js. Edit that file, then run: npm run sync
 window.Igor = {
   init: function (quillInstance) {
     this.container = document.getElementById("igor-stats");
